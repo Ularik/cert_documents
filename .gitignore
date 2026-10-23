@@ -2,3 +2,7 @@
 .vscode/
 .DS_Store
 Thumbs.db
+
+# секреты окружения (шаблоны: .env_back.example, .env_front.example)
+.env_back
+.env_front

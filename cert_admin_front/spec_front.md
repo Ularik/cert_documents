@@ -10,13 +10,13 @@
 - Алиас импортов `@/*` → корень `dashboard/` (`tsconfig.json`). `components.json`: алиасы `@/components`, `@/lib/utils`, `@/components/ui`, `@/hooks`; RSC включён.
 - Шрифты: Montserrat (latin+cyrillic, `--font-montserrat`) и Inter (`--font-sans`) в `app/layout.tsx`. Заголовок страницы «Cert Dashboard».
 
-### Окружение (`.env`, закоммичен через `!dashboard/.env` в `.gitignore`)
+### Окружение (`../.env_front` в корне проекта, шаблон `../.env_front.example`; в git не хранится)
 
-Переменные: `MODE`, `NEXT_BACK_URL`, `NEXT_BACK_URL_WEB`, `NEXT_BACK_URL_LOCAL`, `NEXT_BACK_URL_LOCAL_WEB` (значения не дублируются здесь). В коде реально читается `NEXT_BACK_URL`:
-- `lib/axiosApi.ts` — SSR-базовый URL `${NEXT_BACK_URL}/api`;
+Переменные: `MODE`, `NEXT_BACK_URL`, `NEXT_BACK_URL_LOCAL` (серверные, читаются в рантайме) и опциональная `NEXT_PUBLIC_API_URL` (браузер, для `npm run dev` без nginx; по умолчанию `/api`) (значения не дублируются здесь). В коде реально читается `NEXT_BACK_URL`:
+- `lib/axiosApi.ts` — SSR-базовый URL `${NEXT_BACK_URL}/api` (`NEXT_BACK_URL_LOCAL` при `MODE=LOCAL`); в браузере `NEXT_PUBLIC_API_URL` или `/api`;
 - `app/layout.tsx` — favicon `${NEXT_BACK_URL}/logo/logo.png`.
 
-`docker-compose.yml` бэкенда задаёт сервису frontend `NEXT_API_URL=http://nginx/api`, но код такую переменную не читает.
+Compose (`../docker-compose.yml` в корне) передаёт контейнеру frontend только `env_file ./.env_front`; там `NEXT_BACK_URL=http://backend:8000` (имя сервиса compose).
 
 ### Docker (`../Dockerfile`)
 
@@ -146,8 +146,9 @@ types/                  TS-типы DTO
 3. `useLogout` ловит ошибки через `try/catch` вокруг `mutate` (не `mutateAsync`) — `catch` недостижим; `router.push("/login")` выполняется без ожидания результата.
 4. После логина всегда `/admin`, затем ProtectedLayout исправляет путь (кратковременный лишний переход).
 5. `PUT /head/tasks/{id}` на бэкенде ожидает `old_attachments_datas`, а `buildTaskFormData` шлёт `old_attachments_ids` — при обновлении задачи ролью HEAD/DEPUTY старые вложения теряются.
-6. Несовпадение env: compose задаёт `NEXT_API_URL`, код читает `NEXT_BACK_URL`.
+6. (Устранено) раньше compose задавал неиспользуемый `NEXT_API_URL`; теперь он убран.
 7. Для общих запросов пользователей/задач путь жёстко `/tasks/` (`postTask`, `putTask`, `deleteTask`) — их использует роль USER; остальные роли идут через свои `/admin|head|management-head` обёртки.
 8. В `components/` и `app/` много дублирования между ролями (особенно страницы `[id]` и `new`); при изменении логики задач проверять все четыре ветки.
 9. `services/queries/generalQueries/general_queries.ts` и `services/requests/generalRequests/requests.ts` — пустые заготовки.
-10. `.env` фронтенда лежит в репозитории (исключение в `.gitignore`).
+10. `npm run dev` вне Docker читает `dashboard/.env`, а не корневой `.env_front` — для локальной разработки скопируйте/симлинкуйте его туда.
+11. (Исправлено) раньше `lib/axiosApi.ts` выбирал браузерный URL по `MODE`/`NEXT_BACK_URL_WEB` без `NEXT_PUBLIC_` — в бандл они не попадают. Теперь браузер использует `NEXT_PUBLIC_API_URL || "/api"`. `.dockerignore` фронтенда больше не пропускает `dashboard/.env*` в образ, чтобы dev-значения (например `localhost`) не запекались в бандл.

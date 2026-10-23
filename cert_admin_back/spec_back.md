@@ -23,7 +23,9 @@ pytest tests/api_tests/test_auth.py::имя_теста
 docker compose up --build
 ```
 
-### Конфигурация (`src/config.py`, `.env`, образец `.env.example`)
+### Конфигурация (`src/config.py`; файл `../.env_back` в корне проекта, шаблон `../.env_back.example`)
+
+`Settings` читает `cert_admin_back/.env` (если есть) и затем `../.env_back`; в Docker переменные приходят через `env_file: ./.env_back`. Файл в git не хранится. Для локального запуска вне Docker поставьте в нём `MODE=LOCAL`.
 
 | Переменная | Назначение |
 |---|---|
@@ -35,11 +37,13 @@ docker compose up --build
 
 `Settings.DB_URL = postgresql+asyncpg://user:pass@host:port/db`. `.env_test` подключается через `pytest.ini` (`env_files`).
 
-### Docker (`docker-compose.yml`)
+### Docker (`../docker-compose.yml`, в корне проекта)
 
-Сервисы: `postgres` (17-alpine, том `postgres_data_admin`, без проброса порта), `redis` (7.2, appendonly, healthcheck), `backend` (`alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000`, порт 8000), `celery_worker`, `celery_beat`, `frontend` (build из `../cert_admin_front`, env `NEXT_API_URL=http://nginx/api`, `env_file ../cert_admin_front/dashboard/.env`), `nginx` (80/443, конфиг `nginx.conf` монтируется как `default.conf`). Dockerfile: `python:3.13.5-slim-bullseye`, WORKDIR `/home`, создаёт `/usr/www/logs` и `/usr/www/media`, CMD не задан (команды в compose).
+Запуск: `docker compose up --build` из корня. Нужны `.env_back` и `.env_front` в корне (шаблоны `*.example`, `MODE=DOCKER`). Порты nginx задаются `HTTP_PORT` / `HTTPS_PORT` (по умолчанию 80 / 443). Первый админ: `docker compose exec backend python -m src.cli createsuperuser`. `container_name` не заданы (имена вида `<проект>-<сервис>-1`), чтобы не конфликтовать с другими стеками.
 
-`nginx.conf`: `location = /api` и `location /api/` → `http://backend:8000`; `location /` → `http://frontend:3000` (с upgrade-заголовками). TLS в конфиге не настроен (только `listen 80`, порт 443 проброшен).
+Сервисы: `postgres` (17-alpine, том `postgres_data_admin`, без проброса порта, healthcheck `pg_isready`; backend/celery_worker стартуют после `service_healthy`), `redis` (7.2, appendonly, healthcheck), `backend` (`alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000`, порт 8000), `celery_worker`, `celery_beat`, `frontend` (build из `cert_admin_front`, `env_file cert_admin_front/dashboard/.env`), `nginx` (конфиг `./nginx.conf` (корень проекта) монтируется как `default.conf`; добавлен `client_max_body_size 100m` для загрузки вложений). Dockerfile: `python:3.13.5-slim-bullseye`, WORKDIR `/home`, создаёт `/usr/www/logs` и `/usr/www/media`, CMD не задан (команды в compose).
+
+`../nginx.conf` (корень проекта; upstream'ы заданы через `resolver 127.0.0.11` и переменные `set $…_upstream`, поэтому nginx стартует, даже если backend/frontend ещё не подняты — до их появления отдаёт 502, а не падает с «host not found in upstream»): `location = /api` и `location /api/` → `http://backend:8000`; `location /` → `http://frontend:3000` (с upgrade-заголовками). TLS в конфиге не настроен (только `listen 80`, порт 443 проброшен).
 
 ## 2. Структура кода
 

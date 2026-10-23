@@ -1,0 +1,100 @@
+# Запуск всего стека одной командой из корня проекта:
+#   docker compose up --build
+# Перед первым запуском должны существовать:
+#   .env_back   (шаблон: .env_back.example, MODE=DOCKER)
+#   .env_front  (шаблон: .env_front.example, MODE=DOCKER)
+# Приложение: http://localhost (nginx; порты меняются через HTTP_PORT / HTTPS_PORT). Первый администратор:
+#   docker compose exec backend python -m src.cli createsuperuser
+
+services:
+
+  postgres:
+    image: postgres:17-alpine
+    restart: always
+    volumes:
+      - postgres_data_admin:/var/lib/postgresql/data
+    env_file:
+      - ./.env_back
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./cert_admin_back
+    command: sh -c "alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000"
+    ports: [ "8000:8000" ]
+    restart: always
+    env_file:
+      - ./.env_back
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./cert_admin_back
+    restart: always
+    env_file:
+      - ./.env_back
+    command: celery -A celery_app.celery_app:celery_instance worker --loglevel=INFO
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build:
+      context: ./cert_admin_back
+    restart: always
+    env_file:
+      - ./.env_back
+    command: celery -A celery_app.celery_app:celery_instance beat --loglevel=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./cert_admin_front
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - ./.env_front
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  postgres_data_admin:
+  redis_data:

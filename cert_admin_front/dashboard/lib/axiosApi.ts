@@ -1,22 +1,21 @@
 import axios from "axios";
 
 
-const MODE = process.env.MODE;
-const NEXT_BACK_URL =
-  MODE === "LOCAL"
-    ? process.env.NEXT_BACK_URL_LOCAL?.trim()
-    : process.env.NEXT_BACK_URL?.trim();
-
-const NEXT_BACK_WEB_URL =
-  MODE === "LOCAL"
-    ? process.env.NEXT_BACK_URL_LOCAL_WEB?.trim()
-    : process.env.NEXT_BACK_URL_WEB?.trim();
-
+// На сервере (SSR) переменные окружения читаются в рантайме:
+// MODE=LOCAL -> NEXT_BACK_URL_LOCAL, иначе NEXT_BACK_URL (например http://backend:8000).
+// В браузере переменные без префикса NEXT_PUBLIC_ недоступны, поэтому по умолчанию
+// запросы идут на относительный /api (его проксирует nginx). Для `npm run dev` без nginx
+// задайте NEXT_PUBLIC_API_URL=http://localhost:8001/api.
+const serverBackUrl = (
+  process.env.MODE === "LOCAL"
+    ? process.env.NEXT_BACK_URL_LOCAL
+    : process.env.NEXT_BACK_URL
+)?.trim();
 
 export const apiURL =
   typeof window === "undefined"
-    ? NEXT_BACK_URL + "/api"
-    : NEXT_BACK_WEB_URL?.trim();
+    ? `${serverBackUrl}/api`
+    : process.env.NEXT_PUBLIC_API_URL?.trim() || "/api";
 
 
 const axiosApi = axios.create({

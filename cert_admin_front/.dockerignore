@@ -1,5 +1,7 @@
 .idea
 .env
-!dashboard/.env
+.env*
+dashboard/.env
+dashboard/.env*
 dashboard/node_modules
 dashboard/.next
