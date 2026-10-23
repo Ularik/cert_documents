@@ -1,0 +1,153 @@
+# spec_front.md — техническая спецификация фронтенда (cert_admin_front)
+
+Справочник по фронтенду (панель управления задачами). Составлен по исходникам; при расхождении с кодом прав код. Все пути ниже относительно `cert_admin_front/dashboard/`, если не указано иное. Интерфейс на русском. Бэкенд описан в `../cert_admin_back/spec_back.md`.
+
+## 1. Стек и запуск
+
+- Next.js **16.3.1** (App Router, `output: "standalone"`), React **19.2.8**, TypeScript 5, Tailwind CSS 4 (`@tailwindcss/postcss`, `tw-animate-css`), shadcn (стиль `base-vega`, `@base-ui/react`, иконки `lucide-react`, `cmdk`, `sonner`, `next-themes`), TanStack React Query 5 (+ devtools), react-hook-form 7 (+ `@hookform/resolvers`), axios, clsx / tailwind-merge / class-variance-authority.
+- `AGENTS.md` (импортируется из `CLAUDE.md`): эта версия Next.js имеет ломающие изменения — перед написанием Next-специфичного кода читать `node_modules/next/dist/docs/`.
+- Скрипты (`package.json`): `npm run dev`, `npm run build`, `npm run start`, `npm run lint` (ESLint 9, `eslint-config-next` core-web-vitals + typescript). Тестового раннера нет.
+- Алиас импортов `@/*` → корень `dashboard/` (`tsconfig.json`). `components.json`: алиасы `@/components`, `@/lib/utils`, `@/components/ui`, `@/hooks`; RSC включён.
+- Шрифты: Montserrat (latin+cyrillic, `--font-montserrat`) и Inter (`--font-sans`) в `app/layout.tsx`. Заголовок страницы «Cert Dashboard».
+
+### Окружение (`.env`, закоммичен через `!dashboard/.env` в `.gitignore`)
+
+Переменные: `MODE`, `NEXT_BACK_URL`, `NEXT_BACK_URL_WEB`, `NEXT_BACK_URL_LOCAL`, `NEXT_BACK_URL_LOCAL_WEB` (значения не дублируются здесь). В коде реально читается `NEXT_BACK_URL`:
+- `lib/axiosApi.ts` — SSR-базовый URL `${NEXT_BACK_URL}/api`;
+- `app/layout.tsx` — favicon `${NEXT_BACK_URL}/logo/logo.png`.
+
+`docker-compose.yml` бэкенда задаёт сервису frontend `NEXT_API_URL=http://nginx/api`, но код такую переменную не читает.
+
+### Docker (`../Dockerfile`)
+
+Три стадии на `node:20-alpine`: `deps` (`npm ci`) → `builder` (`npm run build`, `NEXT_TELEMETRY_DISABLED=1`) → `runner` (копирует `.next/standalone` и `.next/static`, пользователь `nextjs`, `PORT=3000`, `HOSTNAME=0.0.0.0`, `node server.js`). Контекст сборки — `cert_admin_front/`, сорцы берутся из `dashboard/`. Фронт работает за nginx бэкенд-стека (`/` → frontend:3000, `/api` → backend:8000).
+
+## 2. Структура
+
+```
+app/
+  layout.tsx            корень: шрифты, <Toaster/>, <Providers/>
+  page.tsx              редирект на /login
+  globals.css
+  (auth)/login, register
+  (roles)/layout.tsx    клиентский layout с ProtectedLayout + сайдбары
+  (roles)/admin/...     ADMIN, DIVISION_HEAD
+  (roles)/management-head/...   MANAGEMENT_HEAD (+ собственный layout.tsx)
+  (roles)/heads/...     HEAD, DEPUTY (и админы)
+  (roles)/users/...     USER
+components/             бизнес-компоненты по доменам + ui/ (shadcn, 18 файлов)
+constants/main.ts       роли, пути, меню
+lib/axiosApi.ts         axios-инстанс; lib/utils.ts — cn()
+middlewares/ProtectedLayout.tsx   клиентская ролевая защита
+providers/provider.tsx  QueryClientProvider
+services/requests/      axios-функции
+services/queries/       React Query хуки
+services/utils.ts       buildTaskFormData
+types/                  TS-типы DTO
+```
+
+### Дерево маршрутов (`app/(roles)`)
+
+| Роль | Корень | Страницы |
+|---|---|---|
+| ADMIN / DIVISION_HEAD | `/admin` | `departments` (+`new`, `[id]`), `managements` (+`new`, `[id]`), `executors` (+`new`, `[id]`), `tasks` (+`new`, `[id]`, `[id]/reply`, `[id]/reply/new`, `[id]/reply/[reply_id]`) |
+| MANAGEMENT_HEAD | `/management-head` | `departments` (+`new`, `[id]`), `executors` (+`new`, `[id]`), `tasks` (+`new`, `[id]`, `[id]/reply[...]`) |
+| HEAD / DEPUTY | `/heads` | `executors` (+`new`, `[id]`), `myexecutors`, `tasks` (+`all`, `new`, `[id]`, `[id]/reply[...]`) |
+| USER | `/users` | `executors`, `tasks` (+`all`, `new`, `[id]`, `[id]/reply[...]`) |
+
+Страницы тонкие: берут `useMe()` и роль-специфичные хуки, передают их в общие компоненты как пропсы.
+
+## 3. Авторизация и защита маршрутов
+
+- Аутентификация — cookie `access_token`, выставляемая бэкендом; axios шлёт её через `withCredentials: true`. Токен в JS не хранится.
+- `middlewares/ProtectedLayout.tsx` (client component, оборачивает всё в `app/(roles)/layout.tsx` со всеми шестью ролями): `useMe()` → если пользователя нет — `router.replace("/login")`; если путь `/admin*` и роль не из `ADMIN_DASHBOARD_ROLES` — редирект на дашборд роли; `/heads*` — допускаются админские роли, HEAD, DEPUTY; `/management-head*` — только MANAGEMENT_HEAD; в конце, если роль не в `roles` — редирект на `roleDashboardPaths[role]`. Пока загрузка / нет пользователя — рендерит `null`. Защита **только клиентская** (серверного `middleware.ts` нет).
+- `app/(auth)/login/page.tsx`: react-hook-form (username ≥3, last_name ≥2, password обязателен), `useLogin`, после успеха всегда `router.push("/admin")` — дальше ProtectedLayout перенаправляет по роли.
+- `lib/axiosApi.ts`: `baseURL` = `/api` в браузере и `${NEXT_BACK_URL}/api` при SSR. Response-интерцептор: при 401 (кроме запроса с `url === "/users/login"`, один раз через флаг `_retry`) вызывает `POST /users/logout`, редиректит на `/login` (`window.location.replace`) и повторяет исходный запрос. Условие `window.location.pathname !== "/auth/login"` неточно (реальный путь `/login`).
+- `constants/main.ts`: `ADMIN_ACCESS_ROLES = [ADMIN, DIVISION_HEAD, MANAGEMENT_HEAD]`, `ADMIN_DASHBOARD_ROLES = [ADMIN, DIVISION_HEAD]`, `roleDashboardPaths` (`ADMIN`/`DIVISION_HEAD`→`/admin`, `MANAGEMENT_HEAD`→`/management-head`, `HEAD`/`DEPUTY`→`/heads`, `USER`→`/users`), `dashboardMenuItems` (label, href, roles, icon) — единственный источник пунктов меню сайдбара. Роли зеркалят enum `UserStatus` бэкенда.
+
+## 4. Слой данных
+
+Паттерн: `services/requests/*` — чистые axios-функции; `services/queries/*` — React Query хуки поверх них; компоненты зовут хуки.
+
+`providers/provider.tsx`: `QueryClient` с `retry: 1`, `refetchOnWindowFocus: false`, `staleTime: 1 мин`, `gcTime: 5 мин`; `ReactQueryDevtools` включены.
+
+### Ключи запросов и инвалидации
+
+| Ключ | Откуда |
+|---|---|
+| `["me"]` | `useMe` (`GET users/me`); инвалидируется в `useLogout` |
+| `["users", department_id]` | `useUsers` (`GET users/`) |
+| `["user", id]` | `useUserDetail` |
+| `["departments"]`, `["department", id]` | `queries/departments.ts` |
+| `["managements"]`, `["management", id]` | `queries/managements.ts` |
+| `["tasks", tasksPath, params]` | `useTasks(params, tasksPath = "/tasks/")`; включён при `params.management_id !== ""` |
+| `["task", tasksPath, id]` | `useTaskDetail(id, tasksPath = "/tasks")` |
+| `["replies", "list", task_id]`, `["replies", "detail", reply_id]` | `queries/reply.ts` |
+
+Мутации инвалидируют родственные ключи: задачи → `["tasks"]`/`["task"]`; пользователи → `["users"]`, `["departments"]`; отделы/управления → `["departments"]`, `["managements"]`, `["users"]`; `management-head/organization.ts` — широкий набор (`departments`, `department`, `users`, `user`, `managements`, `tasks`); ответы → `["replies"]` (+`["tasks"]` при создании).
+
+### Таблица запросов (HTTP → бэкенд)
+
+Все пути относительно `/api` (axios `baseURL`).
+
+| Домен | Функция (`services/requests`) | Запрос |
+|---|---|---|
+| Пользователи (`users.ts`) | `registerUser` / `getMe` / `getUsers(dep?)` / `login` / `logout` / `userUpdate` / `userDetail` / `deleteUser` | `POST /users/`, `GET users/me`, `GET users/`, `POST /users/login`, `POST /users/logout`, `PATCH /users/{id}`, `GET /users/{id}`, `DELETE /admin/users/{id}` |
+| Пользователи админ | `admin/users.ts` | `POST|PATCH|DELETE /admin/users[/{id}]` |
+| Пользователи HEAD | `heads/users.ts` | `POST|PATCH|DELETE /head/users[/{id}]` |
+| Пользователи MGMT-HEAD | `management-head/users.ts` | `POST|PATCH|DELETE /management-head/users[/{id}]` |
+| Отделы (`departments.ts`) | `getDepartments`, `getDepartmentById`, `createDepartments`, `updateDepartment`, `deleteDepartment` | `GET /departments/[{id}]`, `POST|PUT|DELETE /admin/departments[/{id}]` |
+| Отделы MGMT-HEAD | `management-head/departments.ts` | `POST|PUT|DELETE /management-head/departments[/{id}]` |
+| Управления (`managements.ts`) | `getManagements`, `getManagement`, `createManagement`, `updateManagement`, `deleteManagement` | `GET /managements/[{id}]`, `POST|PUT|DELETE /admin/managements[/{id}]` |
+| Задачи общие (`tasks.ts`) | `getTasks`, `getTaskDetail`, `postTask`, `putTask`, `patchTaskStatus`, `deleteTask` | `GET {tasksPath}` с query, `GET {tasksPath}/{id}`, `POST /tasks/`, `PUT|PATCH|DELETE /tasks/{id}` |
+| Задачи админ (`admin/tasks.ts`) | `postAdminTask`, `putAdminTask`, `patchAdminTaskStatus`, `deleteAdminTask` | `/admin/tasks[/{id}]` |
+| Задачи HEAD (`heads/tasks.ts`) | `postHeadsTask`, … | `/head/tasks[/{id}]` |
+| Задачи MGMT-HEAD (`management-head/tasks.ts`) | `postManagementHeadTask`, … | `/management-head/tasks[/{id}]` |
+| Ответы (`reply.ts`) | `createReply`, `updateReply`, `getReplies`, `getDetailReply`, `deleteReply` | `POST /tasks/{task}/tasks_reply`, `PUT|GET|DELETE /tasks/tasks_reply/{id}`, `GET /tasks/{task}/tasks_reply` (общие для всех ролей) |
+
+`getTasks` собирает `URLSearchParams`: `limit`, `offset`, `department_id`, `management_id`, `from_date`, `to_date`, `rush`, `extra_rush`, `is_expired` (булевы отправляются, если `!== undefined`), `status` (повторяющийся). Роль-специфичный путь списка/деталей задаётся аргументом `tasksPath` (`/tasks/`, `/head/tasks`, `/admin/tasks`, `/management-head/tasks`).
+
+Скачивание файлов — не через axios, а прямой ссылкой: `documentDownloadBasePath` (по умолчанию `/api/tasks/task-documents`, для MGMT-HEAD `/api/management-head/tasks/task-documents`) + `/{doc_id}/download`; для ответов путь `/api/tasks/tasks_reply/{doc_id}/download`.
+
+### Формы с файлами
+
+`services/utils.ts → buildTaskFormData(data)` строит `FormData`: `title`, `description`, `note` (если не null), `deadlines` как `YYYY-MM-DD` (локальная дата, без таймзон), `management_id` (если есть), повторяющиеся `departments_ids`, `executor_ids`, `attachments`, и для обновления — `old_attachments_ids`. Ответы (`reply.ts`) аналогично: `content`, `attachments`, `old_attachments_ids`.
+
+## 5. Типы (`types/`)
+
+- `user.ts`: `UserRole` (6 ролей), `UserType {id, username, last_name, status, department_id, management_id?}`, `UserUpdateType`, `UserRegisterType`, `UserRegisterCheckType` (+`confirmPassword`), `UserResponse`, `UserWithDepartment` (+`department_title`), `LoginFormData`.
+- `tasks.ts`: `TasksStatus = NEW|PROGRESS|DONE`, `TaskCreateType`, `TaskUpdateType` (+`old_attachments_ids`), `TaskFormInputs`, `TaskType` (с `author`, `departments`, `executors`, `attachments`), `TasksApiResponseType {total, items}`, `TaskStatusUpdateType`.
+- `departments.ts`: `DepartmentType` (с `head`, `deputy_head`), `DepartmentLiteType`, `DepartmentCreateType`, `DepartmentUpdateType`.
+- `managements.ts`: `ManagementType` (с `head`, `departments`), `ManagementFormType`, `ManagementUpdateType`.
+- `replies.ts`: `ReplyType`, `ReplyCreateType`, `ReplyUpdateType`; `document.ts`: `DocumentLiteType {id, filename}`; `main.ts`: `PagingParams`, `ApiErrorResponse {detail}`.
+- Идентификаторы в типах объявлены то `string`, то `number` (в JSON бэкенд отдаёт числа) — при сравнении используют `String(...)`.
+
+## 6. Компоненты (`components/`)
+
+- `sideBar/` (`sideBar.tsx`, `MobileSideBar.tsx`, `MobileTopBar.tsx`) — меню из `dashboardMenuItems`, фильтр по `user.status`, выход через `useLogout` + `router.push("/login")`; `header/Header.tsx`.
+- `tasks/` — `allTasksList/AllTasksList` (общий список через `useTasks`, переключатель области `TaskScopeToggle`, пропсы `showScopeToggle`, `scopeBasePath`), `departmentTasksList/DepartmentTasksList` (пропсы `user`, `taskBasePath`, `canCreate`; рендерит `cards/taskKanbanCard`), `createTask/CreateTaskForm`, `taskDetail/TaskDetail`, `taskUpdate/{taskMainInfo,taskExecutors}`, `taskStatusSelect/TaskStatusSelect`, `taskScopeToggle/TaskScopeToggle`, `TaskStatusCounters`, `RushTasks`, `tasksDepartments`.
+- `reply/` — `Replies`, `ReplyItem`, `ReplyForm`, `ReplyEditForm`, `ReplyDetail`.
+- `executors/` (`ExecutorsView`, `ExecutorDetail`, `ExecutorAddForm`), `departments/` (`DepCard`, `DepartmentCreateForm`), `managements/` (`ManagementsView`, `ManagementForm`), `users/usersCard`, `auth/register-form`, `pagination/pagination`.
+- `ui/` — shadcn-примитивы: alert, alert-dialog, avatar, badge, button, card, checkbox, command, dialog, input, input-group, label, popover, select, separator, skeleton, sonner, textarea.
+
+### Параметризация по роли
+
+Общие компоненты получают роль-специфику пропсами, а не выбирают сами:
+- `TaskDetail`: `task, user, updateTaskFunc, deleteTaskFunc, isUpdating, isDeleting, replyBasePath` (по умолчанию `/heads/tasks`), `documentDownloadBasePath`. Права внутри: `canEdit` — админский доступ либо задача привязана ровно к одному отделу пользователя; `canDelete` — админский доступ либо автор; `canReply` — отдел пользователя среди отделов задачи.
+- `TaskStatusSelect` вызывает все четыре мутации статуса (admin / heads / management-head / общую) и выбирает нужную по роли.
+- Страницы `[id]` каждой роли подставляют свои хуки (`useUpdateManagementHeadTask`, `useDeleteManagementHeadTask` и т. п.) и `tasksPath` в `useTaskDetail`.
+
+При добавлении новой роли или роут-ветки нужно синхронно обновить: `UserRole` (`types/user.ts`), `constants/main.ts` (пути, меню, группы), `ProtectedLayout`, роут-дерево, а также соответствующие бэкенд-гейты.
+
+## 7. Известные особенности и риски (наблюдения, не исправлены)
+
+1. Защита маршрутов только клиентская; контент не рендерится до загрузки `me`, но серверных проверок нет (реальная защита — на бэкенде).
+2. `lib/axiosApi.ts`: проверка `pathname !== "/auth/login"` не совпадает с реальным путём `/login`; после 401 исходный запрос повторяется один раз сразу после logout-редиректа.
+3. `useLogout` ловит ошибки через `try/catch` вокруг `mutate` (не `mutateAsync`) — `catch` недостижим; `router.push("/login")` выполняется без ожидания результата.
+4. После логина всегда `/admin`, затем ProtectedLayout исправляет путь (кратковременный лишний переход).
+5. `PUT /head/tasks/{id}` на бэкенде ожидает `old_attachments_datas`, а `buildTaskFormData` шлёт `old_attachments_ids` — при обновлении задачи ролью HEAD/DEPUTY старые вложения теряются.
+6. Несовпадение env: compose задаёт `NEXT_API_URL`, код читает `NEXT_BACK_URL`.
+7. Для общих запросов пользователей/задач путь жёстко `/tasks/` (`postTask`, `putTask`, `deleteTask`) — их использует роль USER; остальные роли идут через свои `/admin|head|management-head` обёртки.
+8. В `components/` и `app/` много дублирования между ролями (особенно страницы `[id]` и `new`); при изменении логики задач проверять все четыре ветки.
+9. `services/queries/generalQueries/general_queries.ts` и `services/requests/generalRequests/requests.ts` — пустые заготовки.
+10. `.env` фронтенда лежит в репозитории (исключение в `.gitignore`).

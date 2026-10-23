@@ -1,0 +1,12 @@
+fastapi[standard]
+alembic
+asyncpg
+bcrypt
+pyjwt
+pytest
+pytest-dotenv
+pytest-asyncio
+python-docx
+sqlalchemy[asyncio]
+celery
+redis

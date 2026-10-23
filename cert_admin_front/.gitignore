@@ -1,0 +1,52 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Next.js build output
+.next/
+out/
+
+# Build outputs
+dist/
+build/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# Env files (Очень важно для безопасности!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+dashboard/.env
+
+# Backend specific (Express)
+/uploads/
+/public/uploads/
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Optional: TypeScript cache
+*.tsbuildinfo
+
+# Runtime upload dirs — not tracked; source of truth is MongoDB GridFS
+backend/public/images/
+backend/public/videos/
+
+# seed-assets/ IS tracked in git — needed for `npm run seed` on first deploy
+
+# binary files
+a.out
+
+# coverage
+coverage/

@@ -1,0 +1,42 @@
+@startuml
+title Кто и для кого может создать задачу
+
+left to right direction
+skinparam shadowing false
+skinparam actorStyle awesome
+
+actor "Администратор\nADMIN" as admin
+actor "Начальник отдела\nDIVISION_HEAD" as divisionHead
+actor "Начальник управления\nMANAGEMENT_HEAD" as managementHead
+actor "Начальник отдела /\nзаместитель / сотрудник\nHEAD / DEPUTY / USER" as employee
+database "Tasks\nтаблица задач" as tasks
+database "UsersTasks\nсвязь задачи\nс исполнителями" as usersTasks
+database "Users\nпользователи и их роли" as users
+
+admin --> tasks : Создает задачу\nдля выбранного управления и отдела
+divisionHead --> tasks : Создает задачу\nдля выбранного управления и отдела
+managementHead --> tasks : Создает задачу\nдля своего управления
+employee --> tasks : Создает задачу\nтолько для своего отдела
+
+tasks --> usersTasks : Сохраняет выбранных\nисполнителей
+usersTasks --> users : user_id
+usersTasks --> tasks : task_id
+
+managementHead -[#red,dashed]> tasks : Нельзя создать\nдля другого управления
+employee -[#red,dashed]> tasks : Нельзя выбрать другой отдел\nили назначить исполнителя\nиз другого отдела
+
+note bottom of tasks
+  Правила назначения исполнителей:
+  - ADMIN и DIVISION_HEAD могут выбирать отделы
+    в рамках одного выбранного управления.
+  - MANAGEMENT_HEAD ограничен своим управлением.
+  - HEAD, DEPUTY и USER автоматически ограничены
+    собственным отделом.
+  - Исполнитель всегда должен состоять в отделе задачи.
+
+  Поэтому сотрудник не может назначить задачу начальнику
+  другого отдела/управления. Проверка выполняется по отделу,
+  а не по названию роли.
+end note
+
+@enduml
