@@ -47,7 +47,7 @@ async def test_management_roles_have_admin_access(ac: AsyncClient, role: str):
         "/api/admin/tasks/",
         data={
             "title": f"Task for {role}",
-            "management_id": management_response.json()["id"],
+            "management_ids": [management_response.json()["id"]],
         },
     )
     assert task_response.status_code == 200
@@ -236,7 +236,7 @@ async def test_management_head_is_limited_to_own_departments_and_task_targets(
         "/api/admin/tasks/",
         data={
             "title": "Admin task in other management",
-            "management_id": other_management.json()["id"],
+            "management_ids": [other_management.json()["id"]],
             "departments_ids": [other_department.json()["id"]],
         },
     )
@@ -272,7 +272,7 @@ async def test_management_head_is_limited_to_own_departments_and_task_targets(
         "/api/admin/tasks/",
         data={
             "title": "Task in own management",
-            "management_id": own_management.json()["id"],
+            "management_ids": [own_management.json()["id"]],
             "departments_ids": [own_department.json()["id"]],
             "executor_ids": [employee.json()["id"]],
         },
@@ -281,7 +281,7 @@ async def test_management_head_is_limited_to_own_departments_and_task_targets(
         "/api/admin/tasks/",
         data={
             "title": "Task in other management",
-            "management_id": other_management.json()["id"],
+            "management_ids": [other_management.json()["id"]],
             "departments_ids": [other_department.json()["id"]],
         },
     )
@@ -296,7 +296,7 @@ async def test_management_head_is_limited_to_own_departments_and_task_targets(
         "/api/admin/tasks/",
         data={
             "title": "Task with outside employee",
-            "management_id": own_management.json()["id"],
+            "management_ids": [own_management.json()["id"]],
             "departments_ids": [own_department.json()["id"]],
             "executor_ids": [outside_employee.json()["id"]],
         },
@@ -366,7 +366,7 @@ async def test_user_is_limited_to_their_management(admin_ac: AsyncClient):
         "/api/admin/tasks/",
         data={
             "title": "Task in employee's management",
-            "management_id": own_management.json()["id"],
+            "management_ids": [own_management.json()["id"]],
             "departments_ids": [own_department.json()["id"]],
         },
         files={"attachments": ("own.txt", b"own task document", "text/plain")},
@@ -375,7 +375,7 @@ async def test_user_is_limited_to_their_management(admin_ac: AsyncClient):
         "/api/admin/tasks/",
         data={
             "title": "Task outside employee's management",
-            "management_id": other_management.json()["id"],
+            "management_ids": [other_management.json()["id"]],
             "departments_ids": [other_department.json()["id"]],
         },
         files={"attachments": ("other.txt", b"other task document", "text/plain")},

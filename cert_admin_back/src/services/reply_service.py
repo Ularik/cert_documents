@@ -1,28 +1,14 @@
 from src.schemas.tasks import TaskPatchStatusSchema
-from src.exceptions.exceptions import ReplyNotFoundException, TaskNotFoundException
+from src.exceptions.exceptions import ReplyNotFoundException
 from src.schemas.users import UserInCookiesSchema
 from src.schemas.users_tasks import UsersConnectTaskSchema
 from src.schemas.tasks_reply import ReplyLiteOutSchema, ReplyUpdateSchema, ReplyCreateSchema, ReplyFullOutSchema
 from src.services.base import BaseService
 from fastapi import UploadFile
 from src.schemas.tasks import DocumentLiteSchema
-from src.models.users import MANAGEMENT_SCOPED_STATUSES
 
 
 class ReplyService(BaseService):
-
-    async def _check_management_scope(
-        self,
-        task_id: int,
-        actor_id: int,
-    ) -> None:
-        actor = await self.db.users.get_one(id=actor_id)
-        if actor.status not in MANAGEMENT_SCOPED_STATUSES:
-            return
-        task = await self.db.tasks.get_one_or_none(id=task_id)
-        management_id = await self.get_user_management_id(actor)
-        if task is None or task.management_id != management_id:
-            raise TaskNotFoundException
 
     async def get_replies(
         self,
@@ -30,7 +16,7 @@ class ReplyService(BaseService):
         actor_id: int | None = None,
     ) -> list[ReplyFullOutSchema]:
         if actor_id is not None:
-            await self._check_management_scope(task_id, actor_id)
+            await self.check_task_management_scope(task_id, actor_id)
         replies: list[ReplyFullOutSchema] = await self.db.reply_tasks.get_filtered_replies(task_id=task_id)
         return replies
 
@@ -43,7 +29,7 @@ class ReplyService(BaseService):
         if not res:
             raise ReplyNotFoundException
         if actor_id is not None:
-            await self._check_management_scope(res[0].task_id, actor_id)
+            await self.check_task_management_scope(res[0].task_id, actor_id)
         return res[0]
 
     async def create_reply(
@@ -53,7 +39,7 @@ class ReplyService(BaseService):
             content: str,
             attachments: list[UploadFile]
     ):
-        await self._check_management_scope(task_id, executor.user_id)
+        await self.check_task_management_scope(task_id, executor.user_id)
         # обновляем статус задачи на "в процессе"
         task_update_status = TaskPatchStatusSchema(status="PROGRESS")
         await self.db.tasks.edit(data=task_update_status, id=task_id)
@@ -109,4 +95,4 @@ class ReplyService(BaseService):
         reply = await self.db.reply_tasks.get_filtered_replies(id=reply_id)
         if not reply:
             raise ReplyNotFoundException
-        await self._check_management_scope(reply[0].task_id, actor_id)
+        await self.check_task_management_scope(reply[0].task_id, actor_id)

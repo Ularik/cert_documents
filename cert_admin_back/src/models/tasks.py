@@ -12,20 +12,29 @@ class TasksStatus(Enum):
     DONE = "DONE"
 
 
+class TaskTargetType(Enum):
+    """Кому поручена задача: определяет, кто вправе её менять."""
+    MANAGEMENTS = "MANAGEMENTS"  # управлениям целиком, отделы не выбраны
+    DEPARTMENTS = "DEPARTMENTS"  # отделам целиком, исполнители не выбраны
+    EXECUTORS = "EXECUTORS"      # конкретным сотрудникам
+
+
 class Tasks(Base):
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     author: Mapped["Users"] = relationship()
-    management_id: Mapped[int] = mapped_column(ForeignKey("managements.id", ondelete="RESTRICT"))
-    management: Mapped["Managements"] = relationship()
     title: Mapped[str] = mapped_column(String(255), unique=True)
     description: Mapped[Optional[str]]
     deadlines: Mapped[date | None]
     is_expired: Mapped[bool | None]
     status: Mapped[TasksStatus] = mapped_column(default=TasksStatus.NEW, server_default=TasksStatus.NEW.value)
     note: Mapped[str | None]
+    target_type: Mapped[TaskTargetType] = mapped_column(
+        default=TaskTargetType.EXECUTORS, server_default=TaskTargetType.EXECUTORS.value
+    )
+    managements: Mapped[list["Managements"]] = relationship(secondary="managements_tasks", back_populates="tasks")
     departments: Mapped[list["Departments"]] = relationship(secondary="departments_tasks", back_populates="tasks")
     executors: Mapped[list["Users"]] = relationship(secondary="users_tasks", back_populates="tasks")
     created_at: Mapped[datetime] = mapped_column(

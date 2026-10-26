@@ -1,13 +1,1 @@
-"use client";
-
-import ReplyForm from "@/components/reply/ReplyForm";
-
-export default function CreateTaskReplyPage() {
-
-
-  return (
-    <>
-      <ReplyForm />
-    </>
-  );
-}
+export { default } from "@/pages/admin-tasks-id-reply-new";

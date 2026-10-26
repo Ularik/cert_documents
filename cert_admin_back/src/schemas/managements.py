@@ -17,6 +17,12 @@ class ManagementCreateUpdateSchema(BaseModel):
     description: str | None = None
 
 
+class ManagementLiteOutSchema(BaseModel):
+    id: int
+    title: str
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
+
+
 class ManagementOutSchema(BaseModel):
     id: int
     title: str

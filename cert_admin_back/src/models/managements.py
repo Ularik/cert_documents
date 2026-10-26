@@ -15,6 +15,7 @@ class Managements(Base):
     description: Mapped[str | None]
     departments: Mapped[list["Departments"]] = relationship(back_populates="management")
     users: Mapped[list["Users"]] = relationship(back_populates="management")
+    tasks: Mapped[list["Tasks"]] = relationship(secondary="managements_tasks", back_populates="managements")
     head: Mapped["Users | None"] = relationship(
         "Users",
         primaryjoin=lambda: and_(

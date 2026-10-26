@@ -9,6 +9,10 @@ def register_exception_handlers(app):
     async def has_no_rights_handler(request: Request, exc: exceptions.HasNotRightsToTaskException):
         raise HTTPException(status_code=403, detail=exc.detail)
 
+    @app.exception_handler(exceptions.HasNotRightsException)
+    async def has_no_rights_base_handler(request: Request, exc: exceptions.HasNotRightsException):
+        raise HTTPException(status_code=403, detail=exc.detail)
+
     @app.exception_handler(exceptions.DepartmentNotFoundException)
     async def not_found_handler(request: Request, exc: exceptions.DepartmentNotFoundException):
         raise HTTPException(status_code=404, detail=exc.detail)

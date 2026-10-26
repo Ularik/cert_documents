@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from src.models.departments_tasks import DepartmentsTasks
 from src.models.departments import Departments
+from src.models.managements import Managements
 from src.models.tasks import Tasks
 from src.repositories.base import BaseRepository
 from src.schemas.tasks import TaskLiteOutSchema, TaskFullOutSchema, TaskApiResponseSchema
@@ -29,9 +30,24 @@ class TasksRepository(BaseRepository):
                                  **kwargs) -> TaskApiResponseSchema:
         args = [*args]
         if department_id is not None:
-            args.append(self.model.departments.any(Departments.id == department_id))
+            # задача касается отдела, если он указан явно, либо она поручена
+            # управлению отдела целиком (без выбора отделов)
+            department_management_id = (
+                select(Departments.management_id)
+                .where(Departments.id == department_id)
+                .scalar_subquery()
+            )
+            args.append(
+                or_(
+                    self.model.departments.any(Departments.id == department_id),
+                    and_(
+                        ~self.model.departments.any(),
+                        self.model.managements.any(Managements.id == department_management_id),
+                    ),
+                )
+            )
         if management_id is not None:
-            args.append(self.model.management_id == management_id)
+            args.append(self.model.managements.any(Managements.id == management_id))
 
         if from_date is not None:
             args.append(self.model.created_at >= from_date)
@@ -101,6 +117,7 @@ class TasksRepository(BaseRepository):
             .options(
                 joinedload(self.model.author),
                 selectinload(self.model.attachments),
+                selectinload(self.model.managements),
                 selectinload(self.model.departments),
                 selectinload(self.model.executors)
             )

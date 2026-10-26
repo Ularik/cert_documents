@@ -1,7 +1,1 @@
-"use client";
-
-import ReplyForm from "@/components/reply/ReplyForm";
-
-export default function CreateManagementHeadTaskReplyPage() {
-  return <ReplyForm />;
-}
+export { default } from "@/pages/management-head-tasks-id-reply-new";

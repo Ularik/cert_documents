@@ -65,6 +65,13 @@ class ManagementsRepository(BaseRepository):
             for management in result.unique().scalars().all()
         ]
 
+    async def get_existing_ids(self, management_ids: list[int]) -> set[int]:
+        if not management_ids:
+            return set()
+        query = select(Managements.id).where(Managements.id.in_(management_ids))
+        result = await self.session.execute(query)
+        return set(result.scalars().all())
+
     async def has_departments(self, management_id: int) -> bool:
         query = select(Departments.id).where(Departments.management_id == management_id).limit(1)
         result = await self.session.execute(query)

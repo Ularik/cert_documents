@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Montserrat, Inter } from "next/font/google";
-import "./globals.css";
-import Providers from "@/providers/provider";
-import { cn } from "@/lib/utils";
-import { Toaster } from "@/components/ui/sonner";
+import "@/app/styles/globals.css";
+import Providers from "@/app/providers/provider";
+import { cn } from "@/shared/lib/utils";
+import { Toaster } from "@/shared/ui/sonner";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 

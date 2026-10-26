@@ -1,5 +1,1 @@
-import ExecutorAddForm from "@/components/executors/ExecutorAddForm";
-
-export default function ManagementHeadExecutorAddPage() {
-  return <ExecutorAddForm />;
-}
+export { default } from "@/pages/management-head-executors-new";

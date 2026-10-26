@@ -15,6 +15,11 @@ class DepartmentsTasksRepository(BaseRepository):
     schema = DepartmentsConnectTaskSchema
 
     async def connect_departments_to_task(self, task_id: int, departments_ids: list[int]) -> None:
+        """Приводит список отделов задачи к переданному: недостающие добавляет, лишние удаляет."""
+        await self.delete_bulk(
+            self.model.department_id.not_in(departments_ids),
+            task_id=task_id,
+        )
         if not departments_ids:
             return
 
@@ -27,7 +32,6 @@ class DepartmentsTasksRepository(BaseRepository):
             .values([item.model_dump() for item in tasks_departments_data_list])
             .on_conflict_do_nothing(index_elements=["task_id", "department_id"])
         )
-        print(query.compile(compile_kwargs={"literal_binds": True}))
         try:
             await self.session.execute(query)
         except IntegrityError as err:
@@ -35,12 +39,6 @@ class DepartmentsTasksRepository(BaseRepository):
                 raise ObjectNotFoundException from err
             else:
                 raise err
-        filter_for_delete = and_(
-            self.model.task_id == task_id,
-            self.model.department_id.not_in(departments_ids)
-        )
-        await self.delete_bulk(filter_for_delete)
-
 
     async def same_department(self, user_id: int, task_id: int) -> bool:
         subq = (

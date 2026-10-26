@@ -4,7 +4,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from fastapi import UploadFile
 from datetime import datetime
 
+from src.models.tasks import TaskTargetType
 from src.schemas.departments import DepartmentLiteOutSchema
+from src.schemas.managements import ManagementLiteOutSchema
 from src.schemas.users import UserOutSchema
 
 
@@ -24,14 +26,18 @@ class DocumentOutSchema(DocumentLiteSchema):
     file_data: bytes
 
 
-class TaskCreateUpdateSchema(BaseModel):
-    author_id: int
-    management_id: int
+class TaskUpdateSchema(BaseModel):
+    """Поля, которые меняются при правке задачи. Автор не входит: его меняет только создание."""
     title: str
     description: str | None = None
     deadlines: date | None = None
     note: str | None
+    target_type: TaskTargetType
     model_config = ConfigDict(from_attributes=True, extra="ignore")
+
+
+class TaskCreateUpdateSchema(TaskUpdateSchema):
+    author_id: int | None
 
 
 class TaskPatchStatusSchema(BaseModel):
@@ -47,6 +53,7 @@ class TaskLiteOutSchema(TaskCreateUpdateSchema):
 class TaskOutSchema(TaskCreateUpdateSchema):
     id: int
     status: str
+    management_ids: list[int]
     executors: list[int]
     attachments: list[DocumentLiteSchema]
     created_at: datetime
@@ -56,12 +63,15 @@ class TaskOutSchema(TaskCreateUpdateSchema):
 class TaskFullOutSchema(TaskCreateUpdateSchema):
     id: int
     status: str
-    author: UserOutSchema
+    author: UserOutSchema | None = None
+    managements: list[ManagementLiteOutSchema]
     departments: list[DepartmentLiteOutSchema]
     executors: list[UserOutSchema]
     attachments: list[DocumentLiteSchema]
     created_at: datetime
     updated_at: datetime
+    # заполняется сервисом для текущего пользователя
+    can_edit: bool = False
 
 class TaskApiResponseSchema(BaseModel):
     total: int

@@ -329,14 +329,14 @@ async def test_tasks_can_be_filtered_by_management(admin_ac):
         "/api/admin/tasks/",
         data={
             "title": first_title,
-            "management_id": first_management.json()["id"],
+            "management_ids": [first_management.json()["id"]],
         },
     )
     second_task = await admin_ac.post(
         "/api/admin/tasks/",
         data={
             "title": second_title,
-            "management_id": second_management.json()["id"],
+            "management_ids": [second_management.json()["id"]],
         },
     )
     assert first_task.status_code == 200
@@ -351,7 +351,7 @@ async def test_tasks_can_be_filtered_by_management(admin_ac):
     assert first_title in returned_titles
     assert second_title not in returned_titles
     assert all(
-        task["management_id"] == first_management.json()["id"]
+        first_management.json()["id"] in [m["id"] for m in task["managements"]]
         for task in filtered_tasks.json()["items"]
     )
 
@@ -403,14 +403,14 @@ async def test_management_head_reads_only_own_management_data(admin_ac):
         "/api/admin/tasks/",
         data={
             "title": own_task_title,
-            "management_id": own_management.json()["id"],
+            "management_ids": [own_management.json()["id"]],
         },
     )
     other_task = await admin_ac.post(
         "/api/admin/tasks/",
         data={
             "title": other_task_title,
-            "management_id": other_management.json()["id"],
+            "management_ids": [other_management.json()["id"]],
         },
     )
     assert own_task.status_code == 200
@@ -442,7 +442,7 @@ async def test_management_head_reads_only_own_management_data(admin_ac):
     )
     assert tasks.status_code == 200
     assert all(
-        task["management_id"] == own_management.json()["id"]
+        own_management.json()["id"] in [m["id"] for m in task["managements"]]
         for task in tasks.json()["items"]
     )
     other_management_tasks = await admin_ac.get(

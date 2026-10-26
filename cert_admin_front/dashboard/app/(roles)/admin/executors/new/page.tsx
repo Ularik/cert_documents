@@ -1,8 +1,1 @@
-import ExecutorAddForm from "@/components/executors/ExecutorAddForm";
-
-
-export default function ExecutorAddPage() {
-  return (
-    <ExecutorAddForm/>
-  )
-}
+export { default } from "@/pages/admin-executors-new";

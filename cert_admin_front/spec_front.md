@@ -24,27 +24,24 @@ Compose (`../docker-compose.yml` в корне) передаёт контейн�
 
 ## 2. Структура
 
+Архитектура — Feature-Sliced Design: код в `src/`, импорты только вниз по слоям, межслайсовые — через `index.ts` (правило `eslint-plugin-boundaries` в `eslint.config.mjs`, уровень error; импорт между сущностями разрешён только через `@x`, напр. `@/entities/user/@x/task`). Алиас `@/*` → `src/*`.
+
 ```
-app/
-  layout.tsx            корень: шрифты, <Toaster/>, <Providers/>
-  page.tsx              редирект на /login
-  globals.css
-  (auth)/login, register
-  (roles)/layout.tsx    клиентский layout с ProtectedLayout + сайдбары
-  (roles)/admin/...     ADMIN, DIVISION_HEAD
-  (roles)/management-head/...   MANAGEMENT_HEAD (+ собственный layout.tsx)
-  (roles)/heads/...     HEAD, DEPUTY (и админы)
-  (roles)/users/...     USER
-components/             бизнес-компоненты по доменам + ui/ (shadcn, 18 файлов)
-constants/main.ts       роли, пути, меню
-lib/axiosApi.ts         axios-инстанс; lib/utils.ts — cn()
-middlewares/ProtectedLayout.tsx   клиентская ролевая защита
-providers/provider.tsx  QueryClientProvider
-services/requests/      axios-функции
-services/queries/       React Query хуки
-services/utils.ts       buildTaskFormData
-types/                  TS-типы DTO
+app/                    тонкие файлы Next: page.tsx = re-export из src/pages/<slug>, layout.tsx (корневой — шрифты, Toaster, Providers)
+pages/README.md         пустая заглушка, чтобы Next не принял src/pages за Pages Router
+src/
+  app/                  providers/ (QueryClientProvider), guards/ProtectedLayout, layouts/ (RolesLayout, ManagementHeadLayout), styles/globals.css
+  pages/<slug>/         экран = один маршрут (admin-tasks, users-tasks-id-reply-new, login ...), ui/Page.tsx + index.ts
+  widgets/              sidebar (+model/menu.ts), header, task-list, task-detail, rush-tasks, task-status-counters,
+                        executors-view, executor-detail, managements-view, reply-detail
+  features/             auth, create-task, update-task, change-task-status, task-scope-toggle, reply-create/edit/list,
+                        executor-add, department-form, management-form
+  entities/             task, reply, user (роли в model/roles.ts), department, management, document
+                        — api/ (axios), model/ (типы + React Query хуки; admin.ts/heads.ts/management-head.ts — роль-варианты), ui/
+  shared/               ui/ (shadcn + pagination), api/axiosApi.ts, lib/utils.ts, types/main.ts
 ```
+
+Старые пути → новые: `components/ui` → `shared/ui`; `lib/axiosApi` → `shared/api/axiosApi`; `services/requests|queries` → `entities/*/api|model`; `types/*` → `entities/*/model/types.ts`; `constants/main.ts` → `entities/user/model/roles.ts` + `widgets/sidebar/model/menu.ts`; `middlewares`, `providers` → `src/app`.
 
 ### Дерево маршрутов (`app/(roles)`)
 
