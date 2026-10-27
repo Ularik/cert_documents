@@ -129,10 +129,10 @@ PlantUML `../users.puml` описывает правила создания за
 | POST | `/users/login` | вход (**без** аутентификации) |
 | POST | `/users/` | регистрация пользователя, `UsersAuthSchema` (**без** аутентификации, см. риски) |
 | POST | `/users/logout` | удаляет cookie |
-| GET | `/users/` | список (`department_id?`); для MANAGEMENT_SCOPED — только своё управление |
+| GET | `/users/` | список (`department_id?`); MANAGEMENT_HEAD — своё управление + начальники подразделений; HEAD/DEPUTY/USER — свой отдел + начальник своего управления + начальники подразделений (явный `department_id` сужает выборку до отдела, без руководства) |
 | GET | `/users/roles` | список ролей (строки enum) |
 | GET | `/users/me` | текущий пользователь |
-| GET | `/users/{id}` | пользователь (чужое управление → 404 для scoped) |
+| GET | `/users/{id}` | пользователь (вне видимости по тем же правилам → 404) |
 | GET | `/departments/`, `/departments/{id}` | отделы с `head`/`deputy_head` (scoped видят только своё управление) |
 | GET | `/managements/`, `/managements/{id}` | управления с `head` и `departments` |
 | GET | `/tasks/{id}/tasks_reply` | ответы задачи |
@@ -158,7 +158,7 @@ PlantUML `../users.puml` описывает правила создания за
 
 Form-поля создания/обновления: `title` (обязательно), `description`, `deadlines` (date), `note`, `management_id`, `departments_ids[]`, `executor_ids[]`, `attachments[]`.
 
-Query-параметры списка (`QueryParamsSchema`): `department_id`, `management_id`, `created_at`, `from_date`, `to_date`, `status` (повторяющийся; NEW/PROGRESS/DONE), `rush`, `extra_rush`, `is_expired`, `limit` (1..50, по умолчанию 10), `offset` (≥0). Сортировка `created_at desc`.
+Query-параметры списка (`QueryParamsSchema`): `department_id`, `management_id`, `executor_id` (задачи, где пользователь исполнитель), `created_at`, `from_date`, `to_date`, `status` (повторяющийся; NEW/PROGRESS/DONE), `rush`, `extra_rush`, `is_expired`, `limit` (1..50, по умолчанию 10), `offset` (≥0). Сортировка `created_at desc`.
 Семантика (`TasksRepository.get_filtered_tasks`): `from_date` → `created_at >= from_date`; `to_date` → `created_at < to_date + 1 день`; `rush` (передан любым значением, в т.ч. `false`) → срок в ближайшие 3 дня **или** просрочена и не DONE; `extra_rush` → срок завтра **или** просрочена и не DONE; `is_expired` (аналогично, любое значение) → не DONE и срок < сегодня, **или** флаг `is_expired`. Фильтры включаются по факту `is not None`, значение булева не инвертирует условие.
 
 ### 5.3 Админ, `/admin/*` (ADMIN, DIVISION_HEAD)
@@ -166,6 +166,7 @@ Query-параметры списка (`QueryParamsSchema`): `department_id`, `m
 - `POST /admin/departments/`, `PUT /admin/departments/{id}`, `DELETE /admin/departments/{id}` (204). Тело `DepartmentRequestCreateUpdateSchema`: `title`, `description`, `management_id`, `head_id`, `deputy_head_id` (head ≠ deputy).
 - `POST /admin/managements/`, `PUT /admin/managements/{id}`, `DELETE /admin/managements/{id}` (204). Тело `ManagementRequestSchema`: `title`, `description`, `head_id`. (В коде есть проверки на MANAGEMENT_HEAD, но гейт префикса его и так не пускает.)
 - `POST /admin/users/` (`UsersAuthSchema`), `PATCH /admin/users/{id}` (`UserUpdateSchema`), `DELETE /admin/users/{id}`.
+- `GET /admin/users/tasks-stats` — статистика задач по каждому сотруднику (`UserTasksStatsOut`: данные пользователя + `department_title`, `total`, `new`, `progress`, `done`, `expired`; считаются задачи, где пользователь исполнитель, `expired` = не DONE и срок прошёл или `is_expired`). ADMIN/DIVISION_HEAD видят всех, MANAGEMENT_HEAD (через `/management-head/users/tasks-stats`) — сотрудников своего управления, HEAD/DEPUTY (через `/head/users/tasks-stats`) — сотрудников своего отдела, USER видит только себя через `GET /users/me/tasks-stats` (один объект `UserTasksStatsOut`). «Мои задачи» — `GET /tasks/?executor_id=<свой id>`.
 - `POST|PUT|PATCH|DELETE /admin/tasks[/{id}]` — те же поля, что у `/tasks`; удаление через `delete_task_by_admin` (без проверки автора).
 
 ### 5.4 Руководители отделов, `/head/*` (ADMIN, DIVISION_HEAD, HEAD, DEPUTY)

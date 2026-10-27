@@ -20,6 +20,8 @@ export async function getTasks(
     queryParams.set("department_id", params.department_id);
   if (params.management_id)
     queryParams.set("management_id", params.management_id);
+  if (params.executor_id)
+    queryParams.set("executor_id", params.executor_id);
   if (params.from_date) queryParams.set("from_date", params.from_date);
   if (params.to_date) queryParams.set("to_date", params.to_date);
   if (params.rush !== undefined) queryParams.set("rush", String(params.rush));

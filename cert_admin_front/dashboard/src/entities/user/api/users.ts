@@ -2,6 +2,7 @@ import axiosApi from "@/shared/api/axiosApi";
 import type {
   UserType,
   UserWithDepartment,
+  UserTasksStats,
   UserRegisterType,
   UserResponse,
   LoginFormData,
@@ -27,6 +28,18 @@ export async function getUsers(department_id?: string): Promise<UserWithDepartme
     },
   });
 
+  return res.data;
+}
+
+export async function getUsersTasksStats(
+  usersPath: string,
+): Promise<UserTasksStats[]> {
+  const res = await axiosApi.get(`${usersPath}/tasks-stats`);
+  return res.data;
+}
+
+export async function getMyTasksStats(): Promise<UserTasksStats> {
+  const res = await axiosApi.get("/users/me/tasks-stats");
   return res.data;
 }
 

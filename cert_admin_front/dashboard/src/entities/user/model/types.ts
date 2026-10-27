@@ -18,6 +18,20 @@ export interface UserType {
   management_id?: string | null;
 }
 
+export interface UserTasksStats {
+  id: number;
+  username: string;
+  last_name: string | null;
+  status: UserRole;
+  department_id: number | null;
+  department_title: string | null;
+  total: number;
+  new: number;
+  progress: number;
+  done: number;
+  expired: number;
+}
+
 export interface UserUpdateType {
   username: string | null;
   last_name: string | null;

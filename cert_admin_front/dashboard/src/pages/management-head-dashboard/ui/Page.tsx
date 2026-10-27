@@ -1,5 +1,6 @@
 "use client";
 
+import { EmployeeTaskStats, EmployeeTasksHistory } from "@/widgets/employee-task-stats";
 import { RushTasks } from "@/widgets/rush-tasks";
 import { TaskStatusCounters } from "@/widgets/task-status-counters";
 import { useMe } from "@/entities/user";
@@ -35,6 +36,12 @@ export default function ManagementHeadDashboard() {
         taskBasePath="/management-head/tasks"
         tasksApiPath="/management-head/tasks/"
         documentDownloadBasePath="/api/management-head/tasks/task-documents"
+      />
+      <EmployeeTaskStats usersPath="/management-head/users" />
+      <EmployeeTasksHistory
+        usersPath="/management-head/users"
+        tasksApiPath="/management-head/tasks/"
+        taskBasePath="/management-head/tasks"
       />
     </div>
   );

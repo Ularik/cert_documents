@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, ClipboardList, UserRound, Users } from "lucide-react";
 
+import { MyTaskStats } from "@/widgets/employee-task-stats";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -40,7 +41,10 @@ export default function UserDashboardPage() {
                 </div>
             </header>
 
+            <MyTaskStats />
+
             <section className="grid gap-4 md:grid-cols-2" aria-label="Разделы кабинета">
+                <DashboardLink href="/users/tasks/my" icon={ClipboardList} title="Мои задачи" description="Задачи, где вы назначены исполнителем." />
                 <DashboardLink href="/users/tasks" icon={ClipboardList} title="Задачи отдела" description="Просматривайте задачи, назначенные вашему подразделению." />
                 <DashboardLink href="/users/executors" icon={Users} title="Сотрудники управления" description="Откройте список сотрудников и руководителей вашего управления." />
             </section>

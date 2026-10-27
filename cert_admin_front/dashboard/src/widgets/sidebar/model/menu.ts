@@ -1,5 +1,6 @@
 import {
   Building2,
+  ClipboardList,
   LayoutDashboard,
   type LucideIcon,
   Newspaper,
@@ -85,6 +86,12 @@ export const dashboardMenuItems: DashboardMenuItem[] = [
     icon: Newspaper,
   },
   {
+    label: "Мои задачи",
+    href: "/heads/tasks/my",
+    roles: ["HEAD"],
+    icon: ClipboardList,
+  },
+  {
     label: "Сотрудники",
     href: "/heads/executors",
     roles: ["HEAD"],
@@ -110,6 +117,12 @@ export const dashboardMenuItems: DashboardMenuItem[] = [
     icon: Newspaper,
   },
   {
+    label: "Мои задачи",
+    href: "/heads/tasks/my",
+    roles: ["DEPUTY"],
+    icon: ClipboardList,
+  },
+  {
     label: "Сотрудники",
     href: "/heads/executors",
     roles: ["DEPUTY"],
@@ -133,6 +146,12 @@ export const dashboardMenuItems: DashboardMenuItem[] = [
     href: "/users/tasks",
     roles: ["USER"],
     icon: Newspaper,
+  },
+  {
+    label: "Мои задачи",
+    href: "/users/tasks/my",
+    roles: ["USER"],
+    icon: ClipboardList,
   },
   {
     label: "Сотрудники",

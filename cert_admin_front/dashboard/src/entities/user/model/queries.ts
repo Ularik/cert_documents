@@ -3,7 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { registerUser, login, 
   getMe, logout, 
   getUsers, userUpdate, 
-  userDetail, deleteUser 
+  userDetail, deleteUser,
+  getUsersTasksStats, getMyTasksStats
 } from "../api/users";
 
 
@@ -36,6 +37,21 @@ export function useUsers(department_id?: string) {
   return useQuery({
     queryKey: ["users", department_id],
     queryFn: () => getUsers(department_id),
+  });
+}
+
+/** usersPath: "/admin/users" или "/management-head/users" — зависит от роли. */
+export function useUsersTasksStats(usersPath = "/admin/users") {
+  return useQuery({
+    queryKey: ["users", "tasks-stats", usersPath],
+    queryFn: () => getUsersTasksStats(usersPath),
+  });
+}
+
+export function useMyTasksStats() {
+  return useQuery({
+    queryKey: ["users", "tasks-stats", "me"],
+    queryFn: getMyTasksStats,
   });
 }
 

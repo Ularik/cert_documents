@@ -259,6 +259,7 @@ class TasksService(BaseService):
         result = await self.db.tasks.get_filtered_tasks(
             department_id=query_params.department_id,
             management_id=management_id,
+            executor_id=query_params.executor_id,
             from_date=query_params.from_date,
             to_date=query_params.to_date,
             rush=query_params.rush,

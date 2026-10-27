@@ -748,3 +748,195 @@ class TestCreateReply:
 #
 #         response = await ac.delete(f"/tasks/{task_id}")
 #         assert response.status_code != 200
+
+async def test_users_tasks_stats_counts_tasks_per_executor(admin_ac, test_department):
+    department = await test_department("stats department")
+    executor = await admin_ac.post(
+        "/api/admin/users/",
+        json={
+            "username": "stats-executor",
+            "last_name": "Testov",
+            "status": "USER",
+            "department_id": department["id"],
+            "password": "password",
+        },
+    )
+    assert executor.status_code == 200
+    executor_id = executor.json()["id"]
+
+    for title in ("stats task 1", "stats task 2"):
+        response = await admin_ac.post(
+            "/api/admin/tasks/",
+            data={
+                "title": title,
+                "departments_ids": [department["id"]],
+                "executor_ids": [executor_id],
+            },
+        )
+        assert response.status_code == 200
+
+    tasks = (await admin_ac.get("/api/tasks/")).json()["items"]
+    done = await admin_ac.patch(
+        f"/api/admin/tasks/{tasks[0]['id']}", json={"status": "DONE"}
+    )
+    assert done.status_code == 200
+
+    response = await admin_ac.get("/api/admin/users/tasks-stats")
+    assert response.status_code == 200
+    rows = {row["id"]: row for row in response.json()}
+    row = rows[executor_id]
+    assert (row["total"], row["new"], row["progress"], row["done"], row["expired"]) == (2, 1, 0, 1, 0)
+    assert row["department_title"] == "stats department"
+    # сотрудник без задач тоже попадает в таблицу
+    admin_row = next(r for r in rows.values() if r["status"] == "ADMIN")
+    assert admin_row["total"] == 0
+
+
+async def test_tasks_list_filters_by_executor(admin_ac, test_department):
+    department = await test_department("executor filter department")
+    executor_ids = []
+    for name in ("filter-a", "filter-b"):
+        response = await admin_ac.post(
+            "/api/admin/users/",
+            json={
+                "username": name,
+                "last_name": "Testov",
+                "status": "USER",
+                "department_id": department["id"],
+                "password": "password",
+            },
+        )
+        assert response.status_code == 200
+        executor_ids.append(response.json()["id"])
+
+    for title, executor_id in (("by a 1", executor_ids[0]), ("by a 2", executor_ids[0]), ("by b", executor_ids[1])):
+        response = await admin_ac.post(
+            "/api/admin/tasks/",
+            data={"title": title, "departments_ids": [department["id"]], "executor_ids": [executor_id]},
+        )
+        assert response.status_code == 200
+
+    response = await admin_ac.get("/api/tasks/", params={"executor_id": executor_ids[0]})
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    assert {t["title"] for t in response.json()["items"]} == {"by a 1", "by a 2"}
+
+
+async def test_tasks_stats_scoped_by_role(admin_ac, ac, test_department):
+    department = await test_department("scope department")
+    other_department = await test_department("scope other department")
+
+    async def create_user(name, status, dept):
+        response = await admin_ac.post(
+            "/api/admin/users/",
+            json={
+                "username": name,
+                "last_name": "Scope",
+                "status": status,
+                "department_id": dept["id"],
+                "password": "password123",
+            },
+        )
+        assert response.status_code == 200
+        return response.json()["id"]
+
+    head_id = await create_user("scope-head", "HEAD", department)
+    user_id = await create_user("scope-user", "USER", department)
+    await create_user("scope-outsider", "USER", other_department)
+
+    response = await admin_ac.post(
+        "/api/admin/tasks/",
+        data={
+            "title": "scope task",
+            "departments_ids": [department["id"]],
+            "executor_ids": [user_id],
+        },
+    )
+    assert response.status_code == 200
+
+    async def login(name):
+        response = await ac.post(
+            "/api/users/login",
+            json={"username": name, "last_name": "Scope", "password": "password123"},
+        )
+        assert response.status_code == 200
+        ac.cookies.set("access_token", response.json()["access_token"])
+
+    # HEAD видит только свой отдел
+    await login("scope-head")
+    response = await ac.get("/api/head/users/tasks-stats")
+    assert response.status_code == 200
+    assert {row["id"] for row in response.json()} == {head_id, user_id}
+
+    # USER видит только свою статистику и не имеет доступа к чужой
+    await login("scope-user")
+    response = await ac.get("/api/users/me/tasks-stats")
+    assert response.status_code == 200
+    assert (response.json()["id"], response.json()["total"], response.json()["new"]) == (user_id, 1, 1)
+    assert (await ac.get("/api/head/users/tasks-stats")).status_code == 403
+    assert (await ac.get("/api/admin/users/tasks-stats")).status_code == 403
+
+
+async def test_head_sees_only_own_department_users(admin_ac, ac, test_department):
+    department = await test_department("emp department")
+    other_department = await test_department("emp other department")
+
+    async def create_user(name, status, dept):
+        response = await admin_ac.post(
+            "/api/admin/users/",
+            json={
+                "username": name,
+                "last_name": "Emp",
+                "status": status,
+                "department_id": dept["id"],
+                "password": "password123",
+            },
+        )
+        assert response.status_code == 200
+        return response.json()["id"]
+
+    head_id = await create_user("emp-head", "HEAD", department)
+    colleague_id = await create_user("emp-colleague", "USER", department)
+    outsider_id = await create_user("emp-outsider", "USER", other_department)
+
+    async def create_top(name, status, **extra):
+        response = await admin_ac.post(
+            "/api/admin/users/",
+            json={"username": name, "last_name": "Emp", "status": status,
+                  "password": "password123", **extra},
+        )
+        assert response.status_code == 200, response.text
+        return response.json()["id"]
+
+    own_mh_id = await create_top("emp-mh", "MANAGEMENT_HEAD", management_id=department["management_id"])
+    await create_top("emp-other-mh", "MANAGEMENT_HEAD", management_id=other_department["management_id"])
+    division_id = await create_top("emp-division", "DIVISION_HEAD")
+
+    login = await ac.post(
+        "/api/users/login",
+        json={"username": "emp-head", "last_name": "Emp", "password": "password123"},
+    )
+    ac.cookies.set("access_token", login.json()["access_token"])
+
+    response = await ac.get("/api/users/")
+    assert response.status_code == 200
+    # свой отдел + начальник своего управления + начальник подразделения
+    assert {u["id"] for u in response.json()} == {head_id, colleague_id, own_mh_id, division_id}
+
+    # чужой отдел через фильтр — пусто
+    response = await ac.get("/api/users/", params={"department_id": other_department["id"]})
+    assert response.json() == []
+
+    assert (await ac.get(f"/api/users/{colleague_id}")).status_code == 200
+    assert (await ac.get(f"/api/users/{outsider_id}")).status_code == 404
+    assert (await ac.get(f"/api/users/{own_mh_id}")).status_code == 200
+
+    # начальник управления видит своё управление и начальника подразделения
+    login = await ac.post(
+        "/api/users/login",
+        json={"username": "emp-mh", "last_name": "Emp", "password": "password123"},
+    )
+    ac.cookies.set("access_token", login.json()["access_token"])
+    ids = {u["id"] for u in (await ac.get("/api/users/")).json()}
+    assert {own_mh_id, head_id, colleague_id, division_id} <= ids
+    assert outsider_id not in ids

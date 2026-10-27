@@ -61,6 +61,14 @@ class UserWithDepartmentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="ignore")
 
 
+class UserTasksStatsOut(UserWithDepartmentOut):
+    total: int = 0
+    new: int = 0
+    progress: int = 0
+    done: int = 0
+    expired: int = 0
+
+
 class UserUpdateSchema(BaseModel):
     username: str | None = None
     last_name: str | None = None

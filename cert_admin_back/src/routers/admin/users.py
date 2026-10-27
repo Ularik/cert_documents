@@ -16,6 +16,14 @@ async def add_user(
     return await UserService(db).create_managed_user(data, actor_id=user.user_id)
 
 
+@router.get("/tasks-stats")
+async def get_users_tasks_stats(
+        db: DBDep,
+        user: AuthUserDep,
+):
+    return await UserService(db).get_users_tasks_stats(actor_id=user.user_id)
+
+
 @router.delete("/{id}")
 async def delete_user(
         db: DBDep,

@@ -5,6 +5,7 @@ from src.models.departments_tasks import DepartmentsTasks
 from src.models.departments import Departments
 from src.models.managements import Managements
 from src.models.tasks import Tasks
+from src.models.users import Users
 from src.repositories.base import BaseRepository
 from src.schemas.tasks import TaskLiteOutSchema, TaskFullOutSchema, TaskApiResponseSchema
 from sqlalchemy import select, func, and_, or_, update
@@ -19,6 +20,7 @@ class TasksRepository(BaseRepository):
                                  *args,
                                  department_id: int | None = None,
                                  management_id: int | None = None,
+                                 executor_id: int | None = None,
                                  from_date: date | None = None,
                                  to_date: date | None = None,
                                  rush: bool | None = None,
@@ -48,6 +50,9 @@ class TasksRepository(BaseRepository):
             )
         if management_id is not None:
             args.append(self.model.managements.any(Managements.id == management_id))
+
+        if executor_id is not None:
+            args.append(self.model.executors.any(Users.id == executor_id))
 
         if from_date is not None:
             args.append(self.model.created_at >= from_date)

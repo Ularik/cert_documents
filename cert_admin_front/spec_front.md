@@ -33,7 +33,9 @@ src/
   app/                  providers/ (QueryClientProvider), guards/ProtectedLayout, layouts/ (RolesLayout, ManagementHeadLayout), styles/globals.css
   pages/<slug>/         экран = один маршрут (admin-tasks, users-tasks-id-reply-new, login ...), ui/Page.tsx + index.ts
   widgets/              sidebar (+model/menu.ts), header, task-list, task-detail, rush-tasks, task-status-counters,
-                        executors-view, executor-detail, managements-view, reply-detail
+                        executors-view, executor-detail, managements-view, reply-detail,
+                        employee-task-stats (таблица статистики задач по сотрудникам + EmployeeTasksHistory: выбор сотрудника через поиск и его задачи с пагинацией и фильтром по дате создания, query executor_id + EmployeeTasksHistory: выбор сотрудника через поиск и его задачи с пагинацией и фильтром по дате создания; query `executor_id` на дашбордах админа и начальника управления; GET {usersPath}/tasks-stats, хук useUsersTasksStats; MyTaskStats — личные счётчики через useMyTasksStats, GET /users/me/tasks-stats; на дашбордах heads и users; таблица сотрудников отдела у HEAD/DEPUTY — usersPath="/head/users")
+                        task-list/MyTasksList (раздел «Мои задачи»: /heads/tasks/my и /users/tasks/my, useTasks с executor_id = id текущего пользователя; пункт меню «Мои задачи» у HEAD, DEPUTY, USER)
   features/             auth, create-task, update-task, change-task-status, task-scope-toggle, reply-create/edit/list,
                         executor-add, department-form, management-form
   entities/             task, reply, user (роли в model/roles.ts), department, management, document

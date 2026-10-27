@@ -9,11 +9,15 @@ import {
 } from "../api/tasks";
 import { PagingParams } from "@/shared/types/main";
 
-export const useTasks = (params: PagingParams, tasksPath = "/tasks/") => {
+export const useTasks = (
+  params: PagingParams,
+  tasksPath = "/tasks/",
+  enabled = true,
+) => {
   return useQuery({
     queryKey: ["tasks", tasksPath, params],
     queryFn: () => getTasks(params, tasksPath),
-    enabled: params.management_id !== "",
+    enabled: enabled && params.management_id !== "",
   });
 };
 
@@ -54,6 +58,7 @@ export const usePatchTaskStatus = () => {
     mutationFn: patchTaskStatus,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["users", "tasks-stats"] });
       queryClient.invalidateQueries({ queryKey: ["task"] });
     },
   });

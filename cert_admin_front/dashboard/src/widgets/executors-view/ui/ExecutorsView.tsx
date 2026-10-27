@@ -86,8 +86,11 @@ export default function ExecutorsView({
 }: ExecutorsViewProps) {
   const { data: currentUser } = useMe();
   const isManagementHead = currentUser?.status === "MANAGEMENT_HEAD";
-  const isManagementScoped =
-    isManagementHead || currentUser?.status === "USER";
+  // начальники отделов, заместители и сотрудники видят свой отдел и руководство выше
+  const isDepartmentScoped =
+    currentUser?.status === "HEAD" ||
+    currentUser?.status === "DEPUTY" ||
+    currentUser?.status === "USER";
   const { data: users = [], isLoading, isError } = useUsers();
   const {
     data: managements = [],
@@ -133,6 +136,9 @@ export default function ExecutorsView({
       }
       const matchesManagement =
         managementFilter === "all" ||
+        // начальники подразделений и администраторы не привязаны к управлению
+        user.status === "DIVISION_HEAD" ||
+        user.status === "ADMIN" ||
         getUserManagementId(user) === managementFilter;
       const matchesSearch =
         !query ||
@@ -194,7 +200,11 @@ export default function ExecutorsView({
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 flex items-center gap-2">
             <Users className="h-6 w-6 text-zinc-700" />
-            {isManagementScoped ? "Сотрудники управления" : "Сотрудники компании"}
+            {isManagementHead
+              ? "Сотрудники управления"
+              : isDepartmentScoped
+                ? "Мой отдел и руководство"
+                : "Сотрудники компании"}
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
             {filteredUsers.length} сотрудников отображено из {users.length}
@@ -213,7 +223,7 @@ export default function ExecutorsView({
             />
           </div>
 
-          {!managementScopeOnly && (
+          {!managementScopeOnly && !isDepartmentScoped && (
             <Select
               value={managementFilter}
               onValueChange={(value) => value && setManagementFilter(value)}

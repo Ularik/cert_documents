@@ -1,6 +1,7 @@
 
 "use client";
 
+import { EmployeeTaskStats, EmployeeTasksHistory, MyTaskStats } from "@/widgets/employee-task-stats";
 import { RushTasks } from "@/widgets/rush-tasks";
 import { TaskStatusCounters } from "@/widgets/task-status-counters";
 import { useMe } from "@/entities/user";
@@ -21,6 +22,9 @@ export default function Page() {
             </div>
             <TaskStatusCounters departmentId={user.department_id} />
             <RushTasks departmentId={user.department_id} taskBasePath="/heads/tasks" />
+            <MyTaskStats />
+            <EmployeeTaskStats usersPath="/head/users" />
+            <EmployeeTasksHistory usersPath="/head/users" taskBasePath="/heads/tasks" />
         </div>
     );
 }

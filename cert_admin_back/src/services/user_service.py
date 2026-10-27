@@ -1,7 +1,6 @@
 from src.exceptions.exceptions import UniqueObjIsExistException, UserAlreadyExistException
 from src.schemas.users import UserLoginSchema, UserInCookiesSchema, UsersAuthSchema, UserOutSchema, UserAddSchema, \
     UserUpdateSchema
-from src.models.users import MANAGEMENT_SCOPED_STATUSES
 from src.services.base import BaseService
 from src.services.auth import AuthService
 from fastapi import HTTPException
@@ -130,12 +129,23 @@ class UserService(BaseService):
         user = await self.db.users.get_one(id=id)
         if actor_id is not None:
             actor = await self.db.users.get_one(id=actor_id)
-            if actor.status in MANAGEMENT_SCOPED_STATUSES:
-                actor_management_id = await self.get_user_management_id(actor)
-                target_management_id = await self.get_user_management_id(user)
-                if target_management_id != actor_management_id:
-                    raise HTTPException(status_code=404, detail="Сотрудник не найден")
+            if not await self._can_see_user(actor, user):
+                raise HTTPException(status_code=404, detail="Сотрудник не найден")
         return user
+
+    async def _can_see_user(self, actor: UserOutSchema, target: UserOutSchema) -> bool:
+        """Видимость сотрудников: свой отдел/управление плюс начальники выше по цепочке."""
+        if actor.status in {"ADMIN", "DIVISION_HEAD"}:
+            return True
+        if target.id == actor.id or target.status == "DIVISION_HEAD":
+            return True
+        actor_management_id = await self.get_user_management_id(actor)
+        target_management_id = await self.get_user_management_id(target)
+        if actor.status == "MANAGEMENT_HEAD":
+            return target_management_id == actor_management_id
+        if target.status == "MANAGEMENT_HEAD":
+            return actor_management_id is not None and target_management_id == actor_management_id
+        return actor.department_id is not None and target.department_id == actor.department_id
 
     async def get_users(
         self,
@@ -143,16 +153,50 @@ class UserService(BaseService):
         actor_id: int | None = None,
     ):
         management_id = None
+        superiors_management_id = None
+        include_division_heads = False
         if actor_id is not None:
             actor = await self.db.users.get_one(id=actor_id)
-            if actor.status in MANAGEMENT_SCOPED_STATUSES:
+            if actor.status == "MANAGEMENT_HEAD":
                 management_id = await self.get_user_management_id(actor)
                 if management_id is None:
                     return []
+                include_division_heads = department_id is None
+            elif actor.status in {"HEAD", "DEPUTY", "USER"}:
+                # свой отдел + начальник своего управления и начальники подразделений
+                if actor.department_id is None or department_id not in {None, actor.department_id}:
+                    return []
+                if department_id is None:
+                    superiors_management_id = await self.get_user_management_id(actor)
+                    include_division_heads = True
+                department_id = actor.department_id
         return await self.db.users.get_user_full_data(
             department_id=department_id,
             management_id=management_id,
+            superiors_management_id=superiors_management_id,
+            include_division_heads=include_division_heads,
         )
+
+    async def get_users_tasks_stats(self, actor_id: int):
+        """Статистика задач в пределах полномочий: ADMIN/DIVISION_HEAD — все,
+        MANAGEMENT_HEAD — своё управление, HEAD/DEPUTY — свой отдел, USER — только он сам."""
+        actor = await self.db.users.get_one(id=actor_id)
+        if actor.status == "MANAGEMENT_HEAD":
+            management_id = await self.get_user_management_id(actor)
+            if management_id is None:
+                return []
+            return await self.db.users.get_users_tasks_stats(management_id=management_id)
+        if actor.status in {"HEAD", "DEPUTY"}:
+            if actor.department_id is None:
+                return []
+            return await self.db.users.get_users_tasks_stats(department_id=actor.department_id)
+        if actor.status == "USER":
+            return await self.db.users.get_users_tasks_stats(user_id=actor.id)
+        return await self.db.users.get_users_tasks_stats()
+
+    async def get_my_tasks_stats(self, actor_id: int):
+        stats = await self.db.users.get_users_tasks_stats(user_id=actor_id)
+        return stats[0]
 
     async def update_user(self, data: UserUpdateSchema, user_id: int) -> UserOutSchema:
         try:

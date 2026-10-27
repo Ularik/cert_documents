@@ -23,6 +23,7 @@ StatusType = Literal["NEW", "PROGRESS", "DONE"]
 class QueryParamsSchema(BaseModel):
     department_id: int | None = None
     management_id: int | None = None
+    executor_id: int | None = None
     created_at: datetime | None = None
     from_date: date | None = None
     to_date: date | None = None
@@ -36,6 +37,7 @@ class QueryParamsSchema(BaseModel):
 def get_query_params(
         department_id: int | None = None,
         management_id: int | None = None,
+        executor_id: int | None = None,
         created_at: datetime | None = None,
         from_date: date | None = None,
         to_date: date | None = None,
@@ -49,6 +51,7 @@ def get_query_params(
     return QueryParamsSchema(
         department_id=department_id,
         management_id=management_id,
+        executor_id=executor_id,
         created_at=created_at,
         from_date=from_date,
         to_date=to_date,

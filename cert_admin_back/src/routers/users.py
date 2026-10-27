@@ -47,6 +47,11 @@ async def get_me(db: DBDep, user: AuthUserDep):
     return user
 
 
+@router.get("/me/tasks-stats")
+async def get_my_tasks_stats(db: DBDep, user: AuthUserDep):
+    return await UserService(db).get_my_tasks_stats(actor_id=user.user_id)
+
+
 @router.get("/{id}")
 async def get_me(db: DBDep, id: int, user: AuthUserDep):
     user = await UserService(db).get_user(id=id, actor_id=user.user_id)

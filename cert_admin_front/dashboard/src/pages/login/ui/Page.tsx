@@ -15,6 +15,7 @@ import {
 import type { LoginFormData } from "@/entities/user";
 import { useLogin } from "@/entities/user";
 import { useRouter } from "next/navigation";
+import { getApiErrorMessage } from "@/shared/lib/apiError";
 
 export default function LoginPage() {
   const {
@@ -32,7 +33,6 @@ export default function LoginPage() {
   const { mutate: login, isPending, isError, error } = useLogin();
   const router = useRouter();
   function onSubmit(values: LoginFormData) {
-    console.log(values);
     login(values, {
       onSuccess: () => {
         router.push("/admin");
@@ -118,8 +118,11 @@ export default function LoginPage() {
             </div>
 
             {isError && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {error.message}
+              <div
+                role="alert"
+                className="rounded-md bg-destructive/15 p-3 text-sm text-destructive"
+              >
+                {getApiErrorMessage(error, "Не удалось войти")}
               </div>
             )}
 
