@@ -93,7 +93,7 @@ tests/               api_tests/ + conftest.py
 
 **departments**: `id`, `title` (≤100), `description`, `management_id` → managements (RESTRICT, NOT NULL). `UNIQUE(management_id, title)`. Связи: `management`, `users`, `head` (viewonly, `status=HEAD`), `deputy_head` (viewonly, `status=DEPUTY`), `tasks` (M2M).
 
-**tasks**: `id`, `author_id` → users (SET NULL), `title` (≤255, **глобально UNIQUE**), `description`, `deadlines` (date), `is_expired` (bool, null), `status` (`TasksStatus`: NEW/PROGRESS/DONE, default NEW), `note`, `target_type` (`TaskTargetType`: MANAGEMENTS / DEPARTMENTS / EXECUTORS — кому поручена задача). Связи: `author`, `managements` (M2M managements_tasks), `departments` (M2M departments_tasks), `executors` (M2M users_tasks), `attachments`, `replies`. Поля `management_id` у задачи больше нет.
+**tasks**: `id`, `author_id` → users (SET NULL), `title` (≤255, **глобально UNIQUE**), `description`, `deadlines` (timestamptz — дата и время срока; наивное время считается временем Бишкека, UTC+6), `is_expired` (bool, null), `status` (`TasksStatus`: NEW/PROGRESS/DONE, default NEW), `note`, `target_type` (`TaskTargetType`: MANAGEMENTS / DEPARTMENTS / EXECUTORS — кому поручена задача). Связи: `author`, `managements` (M2M managements_tasks), `departments` (M2M departments_tasks), `executors` (M2M users_tasks), `attachments`, `replies`. Поля `management_id` у задачи больше нет.
 
 **users_tasks** (`id`, `user_id` CASCADE, `task_id` CASCADE, UNIQUE(user_id, task_id)) и **departments_tasks** (`department_id` CASCADE, `task_id` CASCADE, UNIQUE(department_id, task_id)). **managements_tasks** (`management_id` RESTRICT, `task_id` CASCADE, UNIQUE(management_id, task_id)).
 
@@ -156,7 +156,7 @@ PlantUML `../users.puml` описывает правила создания за
 | DELETE | `/tasks/{id}` | удалить: только админский доступ или автор |
 | GET | `/tasks/task-documents/{doc_id}/download` | скачать вложение (Content-Disposition `filename*=UTF-8''…`) |
 
-Form-поля создания/обновления: `title` (обязательно), `description`, `deadlines` (date), `note`, `management_id`, `departments_ids[]`, `executor_ids[]`, `attachments[]`.
+Form-поля создания/обновления: `title` (обязательно), `description`, `deadlines` (datetime, ISO 8601), `note`, `management_id`, `departments_ids[]`, `executor_ids[]`, `attachments[]`.
 
 Query-параметры списка (`QueryParamsSchema`): `department_id`, `management_id`, `executor_id` (задачи, где пользователь исполнитель), `created_at`, `from_date`, `to_date`, `status` (повторяющийся; NEW/PROGRESS/DONE), `rush`, `extra_rush`, `is_expired`, `limit` (1..50, по умолчанию 10), `offset` (≥0). Сортировка `created_at desc`.
 Семантика (`TasksRepository.get_filtered_tasks`): `from_date` → `created_at >= from_date`; `to_date` → `created_at < to_date + 1 день`; `rush` (передан любым значением, в т.ч. `false`) → срок в ближайшие 3 дня **или** просрочена и не DONE; `extra_rush` → срок завтра **или** просрочена и не DONE; `is_expired` (аналогично, любое значение) → не DONE и срок < сегодня, **или** флаг `is_expired`. Фильтры включаются по факту `is not None`, значение булева не инвертирует условие.
@@ -212,7 +212,7 @@ Query-параметры списка (`QueryParamsSchema`): `department_id`, `m
 
 ## 7. Celery
 
-`celery_app/celery_app.py`: `Celery("celery_app", broker=settings.REDIS_URL, backend="rpc://")`, `include=['celery_app.tasks']`. Beat: `set-expired-tasks-every-5-minutes` (название устарело) → задача `tasks.set_expired_tasks`, расписание `crontab(minute=0, hour=0)` — раз в сутки в 00:00 (вариант «каждую минуту» закомментирован). Задача: `asyncio.run(...)` → `db.tasks.set_expired_status()` (`is_expired=True` для не-DONE с `deadlines < today`) через `AsyncSessionNullPool`. Файл `celerybeat-schedule` лежит в репозитории.
+`celery_app/celery_app.py`: `Celery("celery_app", broker=settings.REDIS_URL, backend="rpc://")`, `include=['celery_app.tasks']`. Beat: `set-expired-tasks-every-10-minutes` → задача `tasks.set_expired_tasks`, расписание `crontab(minute="*/10")` — каждые 10 минут, т.к. срок указан с точностью до минуты. Задача: `asyncio.run(...)` → `db.tasks.set_expired_status()` (`is_expired=True` для не-DONE с `deadlines < now()`) через `AsyncSessionNullPool`. Файл `celerybeat-schedule` лежит в репозитории.
 
 ## 8. Тесты
 
@@ -235,3 +235,7 @@ Query-параметры списка (`QueryParamsSchema`): `department_id`, `m
 10. `delete`-ручки возвращают `return 200, {...}` (кортеж, а не статус) — тело ответа будет JSON-массивом.
 11. Токен хранит роль на момент логина; `JWT exp` по `ACCESS_TOKEN_EXPIRE_MINUTES`, refresh-механизма нет.
 12. Файлы хранятся в БД (bytea), ограничений на размер/тип в коде нет.
+
+### Календарь задач
+
+`GET /api/tasks/calendar` и `GET /api/management-head/tasks/calendar` — параметры `deadline_from`, `deadline_to` (datetime, полуинтервал `[from, to)`, не длиннее 62 дней), опционально `department_id`, `management_id`, `executor_id`. Возвращает список `TaskCalendarItemSchema` (`id`, `title`, `status`, `deadlines`, `is_expired`), отсортированный по сроку, без пагинации. Область видимости как у списка задач: роли из `MANAGEMENT_SCOPED_STATUSES` видят только своё управление (чужое `management_id` → 403).

@@ -38,7 +38,7 @@ import { useDepartments } from "@/entities/department";
 import { Replies as TaskReplies } from "@/features/reply-list";
 import type { UserType } from "@/entities/user";
 import type { DocumentLiteType } from "@/entities/document";
-import { TaskType, TaskUpdateType } from "@/entities/task";
+import { formatTaskDeadline, TaskType, TaskUpdateType } from "@/entities/task";
 import type { TaskFormInputs } from "@/entities/task";
 
 interface TaskDetailPageProps {
@@ -394,9 +394,7 @@ export default function TaskDetail({
                   <Calendar className="h-3.5 w-3.5 text-zinc-400" />
                   <span>Срок:</span>
                   <span className="font-medium text-zinc-800 ml-auto">
-                    {task.deadlines
-                      ? new Date(task.deadlines).toLocaleDateString("ru-RU")
-                      : "Не указан"}
+                    {formatTaskDeadline(task.deadlines)}
                   </span>
                 </div>
               </div>

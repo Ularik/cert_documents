@@ -2,6 +2,7 @@
 
 import { EmployeeTaskStats, EmployeeTasksHistory } from "@/widgets/employee-task-stats";
 import { RushTasks } from "@/widgets/rush-tasks";
+import { TaskCalendar } from "@/widgets/task-calendar";
 import { TaskStatusCounters } from "@/widgets/task-status-counters";
 import { useMe } from "@/entities/user";
 
@@ -30,6 +31,12 @@ export default function ManagementHeadDashboard() {
       <TaskStatusCounters
         managementId={managementId}
         tasksApiPath="/management-head/tasks/"
+      />
+      <TaskCalendar
+        managementId={managementId}
+        calendarApiPath="/management-head/tasks/calendar"
+        taskBasePath="/management-head/tasks"
+        createTaskPath="/management-head/tasks/new"
       />
       <RushTasks
         managementId={managementId}

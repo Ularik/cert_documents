@@ -74,3 +74,21 @@ export interface TasksApiResponseType {
   total: number;
   items: TaskType[];
 }
+/** Краткая задача для календаря на главной панели */
+export interface TaskCalendarItemType {
+  id: number;
+  title: string;
+  status: TasksStatus;
+  deadlines: string;
+  is_expired: boolean | null;
+}
+
+export interface TaskCalendarParams {
+  /** ISO-строка начала периода (включительно) */
+  deadline_from: string;
+  /** ISO-строка конца периода (не включительно) */
+  deadline_to: string;
+  department_id?: string;
+  management_id?: string;
+  executor_id?: string;
+}

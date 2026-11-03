@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { Sidebar } from "@/widgets/sidebar";
 import { MobileSidebar } from "@/widgets/sidebar";
 import { MobileTopbar } from "@/widgets/sidebar";
+import { DeadlineAlerts } from "@/features/deadline-alerts";
 
 type Props = {
   children: ReactNode;
@@ -26,6 +27,7 @@ export default function AdminLayout({ children }: Props) {
         "USER",
       ]}
     >
+      <DeadlineAlerts />
       <div className="min-h-screen bg-slate-100">
         <Sidebar
           collapsed={isSidebarCollapsed}

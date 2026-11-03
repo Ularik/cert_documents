@@ -1,13 +1,16 @@
 from typing import Literal
-from datetime import date
-from pydantic import BaseModel, ConfigDict, Field
+from datetime import datetime, timedelta, timezone
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from fastapi import UploadFile
-from datetime import datetime
 
 from src.models.tasks import TaskTargetType
 from src.schemas.departments import DepartmentLiteOutSchema
 from src.schemas.managements import ManagementLiteOutSchema
 from src.schemas.users import UserOutSchema
+
+
+# Asia/Bishkek: UTC+6 без перехода на летнее время
+BISHKEK_TZ = timezone(timedelta(hours=6), "Asia/Bishkek")
 
 
 class TaskDocumentAddSchema(BaseModel):
@@ -30,10 +33,18 @@ class TaskUpdateSchema(BaseModel):
     """Поля, которые меняются при правке задачи. Автор не входит: его меняет только создание."""
     title: str
     description: str | None = None
-    deadlines: date | None = None
+    deadlines: datetime | None = None
     note: str | None
     target_type: TaskTargetType
     model_config = ConfigDict(from_attributes=True, extra="ignore")
+
+    @field_validator("deadlines")
+    @classmethod
+    def deadline_with_timezone(cls, value: datetime | None) -> datetime | None:
+        # срок без часового пояса считаем временем Бишкека
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=BISHKEK_TZ)
+        return value
 
 
 class TaskCreateUpdateSchema(TaskUpdateSchema):
@@ -76,3 +87,13 @@ class TaskFullOutSchema(TaskCreateUpdateSchema):
 class TaskApiResponseSchema(BaseModel):
     total: int
     items: list[TaskFullOutSchema]
+
+
+class TaskCalendarItemSchema(BaseModel):
+    """Краткая задача для календаря на главной панели."""
+    id: int
+    title: str
+    status: str
+    deadlines: datetime
+    is_expired: bool | None = None
+    model_config = ConfigDict(from_attributes=True, extra="ignore")

@@ -34,6 +34,16 @@ export default function TaskKanbanCard({
     });
   };
 
+  const formatDeadline = (date: Date | string | null) => {
+    if (!date) return "не указан";
+    return new Date(date).toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   // Право на изменение определяет бэкенд (автор или вышестоящий)
   const canEdit = Boolean(task.can_edit);
 
@@ -118,7 +128,7 @@ export default function TaskKanbanCard({
           <div className="flex items-center gap-1 text-[11px] text-zinc-500">
             <CalendarClock className="h-3 w-3" />
             <span>
-              Срок: {task.deadlines ? formatDate(task.deadlines) : "не указан"}
+              Срок: {formatDeadline(task.deadlines)}
             </span>
           </div>
 

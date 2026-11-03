@@ -13,7 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { useTasks } from "@/entities/task";
+import { formatTaskDeadline, useTasks } from "@/entities/task";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -171,7 +171,7 @@ export default function RushTasks({
                   <div className="flex items-center gap-1.5">
                     <CalendarClock className="h-3.5 w-3.5 text-zinc-400" />
                     Срок:{" "}
-                    {task.deadlines ? formatDate(task.deadlines) : "не указан"}
+                    {formatTaskDeadline(task.deadlines, "не указан")}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <AlertCircle className="h-3.5 w-3.5 text-zinc-400" />

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import {
   ArrowLeft,
@@ -44,6 +44,11 @@ import {
 } from "@/shared/ui/command";
 
 import type { TaskCreateType } from "@/entities/task";
+import {
+  deadlineFromDateKey,
+  parseDateTimeLocalValue,
+  toDateTimeLocalValue,
+} from "@/entities/task";
 import { useDepartments } from "@/entities/department";
 import { useUsers } from "@/entities/user";
 import { useManagements } from "@/entities/management";
@@ -64,12 +69,24 @@ interface Props {
   isPending?: boolean;
 }
 
-export default function CreateTaskForm({
+// useSearchParams требует Suspense-границы при пререндеринге страницы
+export default function CreateTaskForm(props: Props) {
+  return (
+    <Suspense fallback={null}>
+      <CreateTaskFormContent {...props} />
+    </Suspense>
+  );
+}
+
+function CreateTaskFormContent({
   user,
   submitFunc,
   isPending = false,
 }: Props) {
   const router = useRouter();
+  // ?deadline=YYYY-MM-DD приходит из календаря на главной панели
+  const searchParams = useSearchParams();
+  const initialDeadline = deadlineFromDateKey(searchParams?.get("deadline"));
   const [serverError, setServerError] = useState<string | null>(null);
   const [openDeptSelect, setOpenDeptSelect] = useState(false);
 
@@ -108,7 +125,7 @@ export default function CreateTaskForm({
       title: "",
       description: "",
       note: "",
-      deadlines: null,
+      deadlines: initialDeadline,
       management_ids: fixedManagementId != null ? [String(fixedManagementId)] : [],
       departments_ids: isDepartmentLocked && userDeptId ? [userDeptId] : [],
       executor_ids: [],
@@ -332,11 +349,21 @@ export default function CreateTaskForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="deadlines">Срок выполнения</Label>
-              <Input
-                id="deadlines"
-                type="date"
-                {...register("deadlines", { valueAsDate: true })}
+              <Label htmlFor="deadlines">Срок выполнения (дата и время)</Label>
+              <Controller
+                name="deadlines"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    id="deadlines"
+                    type="datetime-local"
+                    value={toDateTimeLocalValue(field.value)}
+                    onChange={(event) =>
+                      field.onChange(parseDateTimeLocalValue(event.target.value))
+                    }
+                    onBlur={field.onBlur}
+                  />
+                )}
               />
             </div>
 

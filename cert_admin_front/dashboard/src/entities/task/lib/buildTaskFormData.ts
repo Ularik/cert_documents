@@ -1,11 +1,5 @@
 import type { TaskCreateType, TaskUpdateType } from "../model/types";
 
-function formatDateOnly(date: Date) {
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
 export default function buildTaskFormData(
   data: TaskUpdateType | TaskCreateType,
 ): FormData {
@@ -21,7 +15,8 @@ export default function buildTaskFormData(
     formData.append("note", data.note);
   }
   if (data.deadlines && !Number.isNaN(data.deadlines.getTime())) {
-    formData.append("deadlines", formatDateOnly(data.deadlines));
+    // дата и время с часовым поясом (UTC), бэкенд хранит timestamptz
+    formData.append("deadlines", data.deadlines.toISOString());
   }
   for (const managementId of data.management_ids) {
     formData.append("management_ids", managementId);

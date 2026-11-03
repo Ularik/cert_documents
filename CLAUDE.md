@@ -45,7 +45,7 @@ Auth and roles (`src/routers/dependencies.py`): JWT in the `access_token` **cook
 
 Task-creation scoping rules are documented in `users.puml`: executors must belong to the task's department; HEAD/DEPUTY/USER are limited to their own department, MANAGEMENT_HEAD to their own management.
 
-Celery: `celery_app/tasks.py` has `tasks.set_expired_tasks`, run daily at 00:00 by beat, which marks overdue tasks expired. It uses `AsyncSessionNullPool` (not the shared engine) because it calls `asyncio.run` per invocation.
+Celery: `celery_app/tasks.py` has `tasks.set_expired_tasks`, run every 10 minutes by beat, which marks overdue tasks expired. It uses `AsyncSessionNullPool` (not the shared engine) because it calls `asyncio.run` per invocation.
 
 Timestamps use the Postgres `Asia/Bishkek` timezone via `server_default`. Migrations live in `src/migrations/versions/`.
 

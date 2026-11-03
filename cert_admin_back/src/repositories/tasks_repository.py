@@ -1,5 +1,4 @@
-import datetime
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from src.models.departments_tasks import DepartmentsTasks
 from src.models.departments import Departments
@@ -7,30 +6,24 @@ from src.models.managements import Managements
 from src.models.tasks import Tasks
 from src.models.users import Users
 from src.repositories.base import BaseRepository
-from src.schemas.tasks import TaskLiteOutSchema, TaskFullOutSchema, TaskApiResponseSchema
+from src.schemas.tasks import TaskLiteOutSchema, TaskFullOutSchema, TaskApiResponseSchema, TaskCalendarItemSchema
 from sqlalchemy import select, func, and_, or_, update
 from sqlalchemy.orm import selectinload, joinedload
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class TasksRepository(BaseRepository):
     model = Tasks
     schema = TaskLiteOutSchema
 
-    async def get_filtered_tasks(self,
-                                 *args,
-                                 department_id: int | None = None,
-                                 management_id: int | None = None,
-                                 executor_id: int | None = None,
-                                 from_date: date | None = None,
-                                 to_date: date | None = None,
-                                 rush: bool | None = None,
-                                 extra_rush: bool | None = None,
-                                 is_expired: bool | None = None,
-                                 status: list[str] = [],
-                                 limit: int = 10,
-                                 offset: int = 0,
-                                 **kwargs) -> TaskApiResponseSchema:
-        args = [*args]
+    def _scope_filters(self,
+                       department_id: int | None = None,
+                       management_id: int | None = None,
+                       executor_id: int | None = None) -> list:
+        args = []
         if department_id is not None:
             # задача касается отдела, если он указан явно, либо она поручена
             # управлению отдела целиком (без выбора отделов)
@@ -53,6 +46,23 @@ class TasksRepository(BaseRepository):
 
         if executor_id is not None:
             args.append(self.model.executors.any(Users.id == executor_id))
+        return args
+
+    async def get_filtered_tasks(self,
+                                 *args,
+                                 department_id: int | None = None,
+                                 management_id: int | None = None,
+                                 executor_id: int | None = None,
+                                 from_date: date | None = None,
+                                 to_date: date | None = None,
+                                 rush: bool | None = None,
+                                 extra_rush: bool | None = None,
+                                 is_expired: bool | None = None,
+                                 status: list[str] = [],
+                                 limit: int = 10,
+                                 offset: int = 0,
+                                 **kwargs) -> TaskApiResponseSchema:
+        args = [*args, *self._scope_filters(department_id, management_id, executor_id)]
 
         if from_date is not None:
             args.append(self.model.created_at >= from_date)
@@ -64,47 +74,45 @@ class TasksRepository(BaseRepository):
             args.append(self.model.status.in_(status))
 
         if rush is not None:
-            today = date.today()
-            three_days = today + timedelta(days=3)
+            now = _now()
+            three_days = now + timedelta(days=3)
 
             args.append(
                 or_(
                     and_(
-                        self.model.deadlines > today,
+                        self.model.deadlines > now,
                         self.model.deadlines <= three_days
                     ),
                     and_(
-                        self.model.deadlines <= today,
+                        self.model.deadlines <= now,
                         self.model.status != "DONE"
                     )
                 )
             )
 
         if extra_rush is not None:
-            today = date.today()
-            tomorrow = today + timedelta(days=1)
+            now = _now()
+            tomorrow = now + timedelta(days=1)
 
             args.append(
                 or_(
                     and_(
-                        self.model.deadlines > today,
+                        self.model.deadlines > now,
                         self.model.deadlines <= tomorrow
                     ),
                     and_(
-                        self.model.deadlines <= today,
+                        self.model.deadlines <= now,
                         self.model.status != "DONE"
                     )
                 )
             )
 
         if is_expired is not None:
-            today = date.today()
-
             args.append(
                 or_(
                     and_(
                         self.model.status != "DONE",
-                        self.model.deadlines < today,
+                        self.model.deadlines < _now(),
                     ),
                     self.model.is_expired
                 )
@@ -143,12 +151,30 @@ class TasksRepository(BaseRepository):
         res = await self.session.execute(query)
         return list(res.scalars().all())
 
+    async def get_calendar_tasks(self,
+                                 deadline_from: datetime,
+                                 deadline_to: datetime,
+                                 department_id: int | None = None,
+                                 management_id: int | None = None,
+                                 executor_id: int | None = None) -> list[TaskCalendarItemSchema]:
+        """Задачи со сроком в полуинтервале [deadline_from, deadline_to) для календаря."""
+        query = (
+            select(self.model)
+            .filter(
+                *self._scope_filters(department_id, management_id, executor_id),
+                self.model.deadlines >= deadline_from,
+                self.model.deadlines < deadline_to,
+            )
+            .order_by(self.model.deadlines.asc(), self.model.id.asc())
+        )
+        result = await self.session.execute(query)
+        return [TaskCalendarItemSchema.model_validate(row) for row in result.scalars()]
+
     async def set_expired_status(self):
-        today = datetime.date.today()
         query = (
             update(self.model)
             .values(is_expired=True)
-            .where(self.model.status != "DONE", self.model.deadlines < today)
+            .where(self.model.status != "DONE", self.model.deadlines < _now())
         )
         await self.session.execute(query)
 

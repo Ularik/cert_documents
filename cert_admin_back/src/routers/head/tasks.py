@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 
 from fastapi import APIRouter, Form, UploadFile, Body
 
@@ -15,7 +15,7 @@ async def post_task(
         user: AuthUserDep,
         title: str = Form(...),
         description: str | None = Form(None),
-        deadlines: date | None = Form(None),
+        deadlines: datetime | None = Form(None),
         note: str | None = Form(None),
         management_ids: list[int] = Form([]),
         departments_ids: list[int] = Form([]),
@@ -42,7 +42,7 @@ async def put_task(
         user: AuthUserDep,
         title: str = Form(...),
         description: str | None = Form(None),
-        deadlines: date | None = Form(None),
+        deadlines: datetime | None = Form(None),
         note: str | None = Form(None),
         management_ids: list[int] = Form([]),
         departments_ids: list[int] = Form([]),

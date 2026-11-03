@@ -1,5 +1,5 @@
 import urllib
-from datetime import date
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Response, Form, UploadFile
 from src.routers.dependencies import AuthUserDep, DBDep, QueryParamsDep
 from src.schemas.tasks import TaskPatchStatusSchema
@@ -16,7 +16,7 @@ async def post_task(
         user: AuthUserDep,
         title: str = Form(...),
         description: str | None = Form(None),
-        deadlines: date | None = Form(None),
+        deadlines: datetime | None = Form(None),
         note: str | None = Form(None),
         management_ids: list[int] = Form([]),
         departments_ids: list[int] = Form([]),
@@ -43,7 +43,7 @@ async def put_task(
         user: AuthUserDep,
         title: str = Form(...),
         description: str | None = Form(None),
-        deadlines: date | None = Form(None),
+        deadlines: datetime | None = Form(None),
         note: str | None = Form(None),
         management_ids: list[int] = Form([]),
         departments_ids: list[int] = Form([]),
@@ -102,6 +102,26 @@ async def get_tasks(db: DBDep, user: AuthUserDep, query_params: QueryParamsDep):
     res = await TasksService(db).get_tasks(query_params, user_id=user.user_id)
     return res
 
+
+@router.get("/calendar")
+async def get_calendar_tasks(
+        db: DBDep,
+        user: AuthUserDep,
+        deadline_from: datetime,
+        deadline_to: datetime,
+        department_id: int | None = None,
+        management_id: int | None = None,
+        executor_id: int | None = None,
+):
+    """Задачи со сроком в периоде [deadline_from, deadline_to) — для календаря."""
+    return await TasksService(db).get_calendar_tasks(
+        user_id=user.user_id,
+        deadline_from=deadline_from,
+        deadline_to=deadline_to,
+        department_id=department_id,
+        management_id=management_id,
+        executor_id=executor_id,
+    )
 
 @router.get("/{id}")
 async def get_task_detail(db: DBDep, user: AuthUserDep, id: int):

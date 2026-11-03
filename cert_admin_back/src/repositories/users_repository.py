@@ -11,7 +11,6 @@ from src.schemas.users import (
     UserTasksStatsOut,
 )
 from src.schemas.users_tasks import UsersConnectTaskSchema
-from datetime import date
 from sqlalchemy import select, insert, update, or_, and_, func
 from sqlalchemy.orm import aliased
 from typing import Literal
@@ -120,7 +119,7 @@ class UsersRepository(BaseRepository):
         """Счётчики задач по статусам для каждого сотрудника (задачи, где он исполнитель)."""
         is_overdue = and_(
             Tasks.status != "DONE",
-            or_(Tasks.deadlines < date.today(), Tasks.is_expired),
+            or_(Tasks.deadlines < func.now(), Tasks.is_expired),
         )
         stats = (
             select(

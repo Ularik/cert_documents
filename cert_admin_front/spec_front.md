@@ -110,7 +110,7 @@ src/
 
 ### Формы с файлами
 
-`services/utils.ts → buildTaskFormData(data)` строит `FormData`: `title`, `description`, `note` (если не null), `deadlines` как `YYYY-MM-DD` (локальная дата, без таймзон), `management_id` (если есть), повторяющиеся `departments_ids`, `executor_ids`, `attachments`, и для обновления — `old_attachments_ids`. Ответы (`reply.ts`) аналогично: `content`, `attachments`, `old_attachments_ids`.
+`services/utils.ts → buildTaskFormData(data)` строит `FormData`: `title`, `description`, `note` (если не null), `deadlines` как ISO-строка с временем (`toISOString()`, UTC), `management_id` (если есть), повторяющиеся `departments_ids`, `executor_ids`, `attachments`, и для обновления — `old_attachments_ids`. Ответы (`reply.ts`) аналогично: `content`, `attachments`, `old_attachments_ids`.
 
 ## 5. Типы (`types/`)
 
@@ -151,3 +151,11 @@ src/
 9. `services/queries/generalQueries/general_queries.ts` и `services/requests/generalRequests/requests.ts` — пустые заготовки.
 10. `npm run dev` вне Docker читает `dashboard/.env`, а не корневой `.env_front` — для локальной разработки скопируйте/симлинкуйте его туда.
 11. (Исправлено) раньше `lib/axiosApi.ts` выбирал браузерный URL по `MODE`/`NEXT_BACK_URL_WEB` без `NEXT_PUBLIC_` — в бандл они не попадают. Теперь браузер использует `NEXT_PUBLIC_API_URL || "/api"`. `.dockerignore` фронтенда больше не пропускает `dashboard/.env*` в образ, чтобы dev-значения (например `localhost`) не запекались в бандл.
+
+### Календарь задач
+
+`widgets/task-calendar` (`TaskCalendar`) — на главных панелях admin, heads и management-head. Месячная сетка (6 недель) с цветными пометками задач по сроку (новая / в работе / выполнена / просрочена), справа — задачи выбранного дня со временем и кнопка «Задача на эту дату» → `<role>/tasks/new?deadline=YYYY-MM-DD` (форма подставляет 18:00). Данные: `useCalendarTasks(params, calendarPath)` в `entities/task/model/calendar.ts`, ключ `["tasks", "calendar", …]`. Хелперы срока (`formatTaskDeadline`, `toDateTimeLocalValue`, …) — `entities/task/lib/deadline.ts`.
+
+### Напоминания о сроках
+
+`features/deadline-alerts` (`DeadlineAlerts`, подключён в `src/app/layouts/RolesLayout.tsx`) — toast (sonner) в 9:00 и 15:00 по локальному времени браузера со списком незавершённых задач, срок которых наступает в ближайшие 3 дня. Каждый слот показывается один раз на пользователя (`localStorage`, ключ `deadline-alerts:last-slot:<id>`); если вход позже слота — показывается сразу. Проверка раз в 30 с и при возврате на вкладку. Область по роли (`model/schedule.ts → alertScope`): ADMIN/DIVISION_HEAD — все задачи, MANAGEMENT_HEAD — своё управление, HEAD/DEPUTY — свой отдел, USER — задачи, где он исполнитель. Данные — `calendarTasksQueryOptions` (эндпоинт календаря).

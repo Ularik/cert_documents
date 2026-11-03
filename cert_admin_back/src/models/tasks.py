@@ -27,7 +27,7 @@ class Tasks(Base):
     author: Mapped["Users"] = relationship()
     title: Mapped[str] = mapped_column(String(255), unique=True)
     description: Mapped[Optional[str]]
-    deadlines: Mapped[date | None]
+    deadlines: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_expired: Mapped[bool | None]
     status: Mapped[TasksStatus] = mapped_column(default=TasksStatus.NEW, server_default=TasksStatus.NEW.value)
     note: Mapped[str | None]

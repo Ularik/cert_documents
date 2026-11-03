@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, Form, Body
-from datetime import date
+from datetime import datetime
 from src.schemas.tasks import TaskPatchStatusSchema
 from src.services.tasks_service import TasksService
 from src.routers.dependencies import DBDep, AuthUserDep
@@ -13,7 +13,7 @@ async def post_task(
         user: AuthUserDep,
         title: str = Form(...),
         description: str | None = Form(None),
-        deadlines: date | None = Form(None),
+        deadlines: datetime | None = Form(None),
         note: str | None = Form(None),
         management_ids: list[int] = Form([]),
         departments_ids: list[int] = Form([]),
@@ -40,7 +40,7 @@ async def put_task(
         user: AuthUserDep,
         title: str = Form(...),
         description: str | None = Form(None),
-        deadlines: date | None = Form(None),
+        deadlines: datetime | None = Form(None),
         note: str | None = Form(None),
         management_ids: list[int] = Form([]),
         departments_ids: list[int] = Form([]),

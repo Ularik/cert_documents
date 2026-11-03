@@ -9,10 +9,19 @@ from src.models.users import MANAGEMENT_SCOPED_STATUSES, UserStatus
 from src.services.base import BaseService
 from src.services.task_access import ADMIN_TIER, can_modify_task, can_work_with_task
 from src.schemas.tasks import (TaskCreateUpdateSchema, TaskUpdateSchema, TaskOutSchema,
-                               TaskLiteOutSchema, TaskApiResponseSchema, TaskFullOutSchema, TaskPatchStatusSchema)
+                               TaskLiteOutSchema, TaskApiResponseSchema, TaskFullOutSchema, TaskPatchStatusSchema,
+                               TaskCalendarItemSchema, BISHKEK_TZ)
 from fastapi import UploadFile
 from fastapi import HTTPException
-from datetime import date
+from datetime import datetime, timedelta
+
+# календарь запрашивает месяц с захватом соседних недель
+CALENDAR_MAX_DAYS = 62
+
+
+def _with_timezone(value: datetime) -> datetime:
+    # время без часового пояса считаем временем Бишкека
+    return value if value.tzinfo is not None else value.replace(tzinfo=BISHKEK_TZ)
 
 
 def _unique(values: list[int]) -> list[int]:
@@ -107,7 +116,7 @@ class TasksService(BaseService):
             user_id: int,
             title: str,
             description: str | None,
-            deadlines: date | None,
+            deadlines: datetime | None,
             note: str | None,
             attachments: list[UploadFile] | None,
             management_ids: list[int] = [],
@@ -166,7 +175,7 @@ class TasksService(BaseService):
             task_id: int,
             title: str,
             description: str | None,
-            deadlines: date | None,
+            deadlines: datetime | None,
             note: str | None,
             attachments: list[UploadFile] | None,
             old_attachments_id_from_front: list[int],
@@ -272,6 +281,44 @@ class TasksService(BaseService):
         if actor is not None:
             await self._mark_editable(actor, result.items)
         return result
+
+    async def get_calendar_tasks(
+        self,
+        user_id: int,
+        deadline_from: datetime,
+        deadline_to: datetime,
+        department_id: int | None = None,
+        management_id: int | None = None,
+        executor_id: int | None = None,
+    ) -> list[TaskCalendarItemSchema]:
+        """Задачи со сроком в выбранном периоде (для календаря на главной панели).
+
+        Область видимости та же, что и у списка задач: пользователи, ограниченные
+        управлением, видят только задачи своего управления.
+        """
+        deadline_from = _with_timezone(deadline_from)
+        deadline_to = _with_timezone(deadline_to)
+        if deadline_to <= deadline_from:
+            raise HTTPException(status_code=400, detail="Конец периода должен быть позже начала")
+        if deadline_to - deadline_from > timedelta(days=CALENDAR_MAX_DAYS):
+            raise HTTPException(status_code=400, detail=f"Период не может превышать {CALENDAR_MAX_DAYS} дней")
+
+        actor = await self.db.users.get_one(id=user_id)
+        if actor.status in MANAGEMENT_SCOPED_STATUSES:
+            actor_management_id = await self.get_user_management_id(actor)
+            if actor_management_id is None:
+                return []
+            if management_id is not None and management_id != actor_management_id:
+                raise HasNotRightsToTaskException
+            management_id = actor_management_id
+
+        return await self.db.tasks.get_calendar_tasks(
+            deadline_from=deadline_from,
+            deadline_to=deadline_to,
+            department_id=department_id,
+            management_id=management_id,
+            executor_id=executor_id,
+        )
 
     async def get_one(
         self,

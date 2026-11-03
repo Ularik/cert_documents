@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check, ChevronsUpDown, RotateCcw } from "lucide-react";
-import { useTasks } from "@/entities/task";
+import { formatTaskDeadline, useTasks } from "@/entities/task";
 import type { TasksStatus } from "@/entities/task";
 import { useUsersTasksStats } from "@/entities/user";
 import { Button } from "@/shared/ui/button";
@@ -241,7 +241,7 @@ export default function EmployeeTasksHistory({
                         {formatDate(task.created_at)}
                       </td>
                       <td className="px-3 py-2 text-zinc-500">
-                        {formatDate(task.deadlines)}
+                        {formatTaskDeadline(task.deadlines, "—")}
                       </td>
                     </tr>
                   ))

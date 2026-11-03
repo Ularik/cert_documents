@@ -1,4 +1,5 @@
 import urllib
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Response
 
@@ -32,6 +33,26 @@ async def download_task_document(doc_id: int, db: DBDep, user: AuthUserDep):
         },
     )
 
+
+@router.get("/calendar")
+async def get_calendar_tasks(
+        db: DBDep,
+        user: AuthUserDep,
+        deadline_from: datetime,
+        deadline_to: datetime,
+        department_id: int | None = None,
+        management_id: int | None = None,
+        executor_id: int | None = None,
+):
+    """Задачи со сроком в периоде [deadline_from, deadline_to) — для календаря."""
+    return await TasksService(db).get_calendar_tasks(
+        user_id=user.user_id,
+        deadline_from=deadline_from,
+        deadline_to=deadline_to,
+        department_id=department_id,
+        management_id=management_id,
+        executor_id=executor_id,
+    )
 
 @router.get("/{id}")
 async def get_task_detail(db: DBDep, user: AuthUserDep, id: int):

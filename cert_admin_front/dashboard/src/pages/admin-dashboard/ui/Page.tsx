@@ -3,6 +3,7 @@
 
 import { EmployeeTaskStats, EmployeeTasksHistory } from "@/widgets/employee-task-stats";
 import { RushTasks } from "@/widgets/rush-tasks";
+import { TaskCalendar } from "@/widgets/task-calendar";
 import { TaskStatusCounters } from "@/widgets/task-status-counters";
 import { useMe } from "@/entities/user";
 
@@ -20,6 +21,11 @@ export default function Page() {
                 <p className="mt-1 text-sm text-zinc-500">Контроль срочных задач и документов</p>
             </div>
             <TaskStatusCounters managementId={managementId} />
+            <TaskCalendar
+                managementId={managementId}
+                taskBasePath="/admin/tasks"
+                createTaskPath="/admin/tasks/new"
+            />
             <RushTasks managementId={managementId} />
             <EmployeeTaskStats />
             <EmployeeTasksHistory taskBasePath="/admin/tasks" />

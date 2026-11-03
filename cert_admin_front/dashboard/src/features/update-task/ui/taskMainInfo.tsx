@@ -37,18 +37,14 @@ import {
 import { useMe } from "@/entities/user";
 import { ADMIN_ACCESS_ROLES } from "@/entities/user";
 import { useDepartments } from "@/entities/department";
-import { TaskFormInputs, TaskType } from "@/entities/task";
+import {
+  formatTaskDeadline,
+  parseDateTimeLocalValue,
+  toDateTimeLocalValue,
+  TaskFormInputs,
+  TaskType,
+} from "@/entities/task";
 
-function formatDateInput(value: Date | string | null) {
-  if (!value) return "";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
 
 interface TaskMainInfoProps {
   task: TaskType;
@@ -247,9 +243,7 @@ export function TaskMainInfo({
           </span>
           {!isEditing ? (
             <span className="font-medium text-zinc-800">
-              {task.deadlines
-                ? new Date(task.deadlines).toLocaleDateString("ru-RU")
-                : "Не указан"}
+              {formatTaskDeadline(task.deadlines)}
             </span>
           ) : (
             <Controller
@@ -257,14 +251,11 @@ export function TaskMainInfo({
               control={control}
               render={({ field }) => (
                 <Input
-                  type="date"
-                  value={formatDateInput(field.value)}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    field.onChange(
-                      value ? new Date(`${value}T00:00:00`) : null,
-                    );
-                  }}
+                  type="datetime-local"
+                  value={toDateTimeLocalValue(field.value)}
+                  onChange={(event) =>
+                    field.onChange(parseDateTimeLocalValue(event.target.value))
+                  }
                   className="h-8 w-auto text-sm"
                 />
               )}
