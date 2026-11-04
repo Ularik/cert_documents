@@ -70,11 +70,16 @@ export function alertScope(user: UserType): AlertScope {
   }
 }
 
-/** 1 задача, 2 задачи, 5 задач */
-export function pluralTasks(count: number) {
+function plural(count: number, one: string, few: string, many: string) {
   const mod10 = count % 10;
   const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${count} задача`;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} задачи`;
-  return `${count} задач`;
+  if (mod10 === 1 && mod100 !== 11) return `${count} ${one}`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} ${few}`;
+  return `${count} ${many}`;
 }
+
+/** 1 задача, 2 задачи, 5 задач */
+export const pluralTasks = (count: number) => plural(count, "задача", "задачи", "задач");
+
+/** 1 заметка, 2 заметки, 5 заметок */
+export const pluralNotes = (count: number) => plural(count, "заметка", "заметки", "заметок");

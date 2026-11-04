@@ -239,3 +239,7 @@ Query-параметры списка (`QueryParamsSchema`): `department_id`, `m
 ### Календарь задач
 
 `GET /api/tasks/calendar` и `GET /api/management-head/tasks/calendar` — параметры `deadline_from`, `deadline_to` (datetime, полуинтервал `[from, to)`, не длиннее 62 дней), опционально `department_id`, `management_id`, `executor_id`. Возвращает список `TaskCalendarItemSchema` (`id`, `title`, `status`, `deadlines`, `is_expired`), отсортированный по сроку, без пагинации. Область видимости как у списка задач: роли из `MANAGEMENT_SCOPED_STATUSES` видят только своё управление (чужое `management_id` → 403).
+
+### Личные заметки
+
+Модель `Notes` (`src/models/notes.py`, таблица `notes`, миграция `d4b8e2f1a305`): `user_id` (FK users, CASCADE), `title`, `description`, `deadlines` (timestamptz, обязателен; без пояса — Бишкек). Роутер `src/routers/notes.py` → `/api/notes`, доступен всем ролям (включая MANAGEMENT_HEAD): `GET /?deadline_from&deadline_to` (те же ограничения периода, что у календаря), `POST /`, `GET|PUT|DELETE /{id}`. Тело — `NoteRequestSchema` (JSON). Каждый видит и меняет только свои заметки; чужая заметка → 404. Сервис `NotesService`, репозиторий `db.notes`.

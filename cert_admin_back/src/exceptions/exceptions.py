@@ -48,3 +48,6 @@ class HasNoRightsToUpdateDepartment(HasNotRightsException):
 
 class HasNotRightsToTaskException(HasNotRightsException):
     detail = 'У вас недостаточно прав для этой задачи'
+
+class NoteNotFoundException(ObjectNotFoundException):
+    detail = "Заметка не найдена"
