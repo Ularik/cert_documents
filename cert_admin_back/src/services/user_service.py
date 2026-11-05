@@ -1,6 +1,6 @@
 from src.exceptions.exceptions import UniqueObjIsExistException, UserAlreadyExistException
 from src.schemas.users import UserLoginSchema, UserInCookiesSchema, UsersAuthSchema, UserOutSchema, UserAddSchema, \
-    UserUpdateSchema
+    UserUpdateSchema, UserPasswordUpdateSchema
 from src.services.base import BaseService
 from src.services.auth import AuthService
 from fastapi import HTTPException
@@ -346,6 +346,14 @@ class UserService(BaseService):
             }
         )
         return await self.update_user(data=normalized_data, user_id=user_id)
+
+    async def reset_password(self, user_id: int, password: str) -> None:
+        hashed_password = await AuthService().hash_pswd(password)
+        await self.db.users.edit(
+            UserPasswordUpdateSchema(hashed_password=hashed_password),
+            id=user_id,
+        )
+        await self.db.save()
 
     async def delete_user(
         self,

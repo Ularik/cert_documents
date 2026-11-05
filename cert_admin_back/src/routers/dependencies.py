@@ -89,6 +89,18 @@ async def get_admin_user(user_data: UserInCookiesSchema = Depends(get_current_us
         )
     return user_data
 
+async def get_superadmin_user(user_data: UserInCookiesSchema = Depends(get_current_user)) -> UserInCookiesSchema:
+    if user_data.status != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для выполнения операции"
+        )
+    return user_data
+
+
+SuperAdminDep = Annotated[UserInCookiesSchema, Depends(get_superadmin_user)]
+
+
 async def get_head_user(user_data: UserInCookiesSchema = Depends(get_current_user)) -> UserInCookiesSchema:
     if user_data.status not in {
         "ADMIN",

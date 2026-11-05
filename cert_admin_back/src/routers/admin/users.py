@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from src.routers.dependencies import AuthUserDep, DBDep
-from src.schemas.users import UsersAuthSchema, UserUpdateSchema
+from src.routers.dependencies import AuthUserDep, DBDep, SuperAdminDep
+from src.schemas.users import UsersAuthSchema, UserUpdateSchema, UserPasswordResetSchema
 from src.services.user_service import UserService
 
 
@@ -47,3 +47,15 @@ async def update_user(
         actor_id=user.user_id,
     )
     return res
+
+
+@router.patch("/{id}/password")
+async def reset_user_password(
+        db: DBDep,
+        user: SuperAdminDep,
+        id: int,
+        data: UserPasswordResetSchema,
+):
+    """Сброс пароля любого пользователя. Доступно только ADMIN."""
+    await UserService(db).reset_password(user_id=id, password=data.password)
+    return {"status": "ok"}

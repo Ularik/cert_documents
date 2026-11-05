@@ -2,6 +2,7 @@ import {
     adminsUserUpdate,
     adminsDeleteUser,
     adminsCreateUser,
+    adminsResetUserPassword,
 } from "../api/admin";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { UserUpdateType } from "./types";
@@ -42,5 +43,11 @@ export function useAdminUserDelete() {
             queryClient.invalidateQueries({ queryKey: ["users"] });
             queryClient.invalidateQueries({ queryKey: ["departments"] });
         }
+    });
+}
+
+export function useAdminUserPasswordReset() {
+    return useMutation<void, AxiosError<ApiErrorResponse>, { id: string; password: string }>({
+        mutationFn: adminsResetUserPassword,
     });
 }

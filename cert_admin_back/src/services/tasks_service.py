@@ -244,6 +244,7 @@ class TasksService(BaseService):
         actor_management_id = await self.get_user_management_id(actor)
         for task in tasks:
             task.can_edit = can_modify_task(actor, actor_management_id, task)
+            task.can_change_status = can_work_with_task(actor, actor_management_id, task)
 
     async def get_tasks(
         self,
@@ -304,21 +305,24 @@ class TasksService(BaseService):
             raise HTTPException(status_code=400, detail=f"Период не может превышать {CALENDAR_MAX_DAYS} дней")
 
         actor = await self.db.users.get_one(id=user_id)
+        actor_management_id = await self.get_user_management_id(actor)
         if actor.status in MANAGEMENT_SCOPED_STATUSES:
-            actor_management_id = await self.get_user_management_id(actor)
             if actor_management_id is None:
                 return []
             if management_id is not None and management_id != actor_management_id:
                 raise HasNotRightsToTaskException
             management_id = actor_management_id
 
-        return await self.db.tasks.get_calendar_tasks(
+        tasks = await self.db.tasks.get_calendar_tasks(
             deadline_from=deadline_from,
             deadline_to=deadline_to,
             department_id=department_id,
             management_id=management_id,
             executor_id=executor_id,
         )
+        for task in tasks:
+            task.can_change_status = can_work_with_task(actor, actor_management_id, task)
+        return tasks
 
     async def get_one(
         self,

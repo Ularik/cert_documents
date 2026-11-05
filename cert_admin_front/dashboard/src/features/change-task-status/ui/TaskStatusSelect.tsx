@@ -35,15 +35,22 @@ interface Props {
   taskId: string;
   status: TasksStatus;
   canChange: boolean;
+  className?: string;
 }
 
-export default function TaskStatusSelect({ taskId, status, canChange }: Props) {
+export default function TaskStatusSelect({ taskId, status, canChange, className }: Props) {
   const { data: user } = useMe();
   const adminMutation = usePatchAdminTaskStatus();
   const headsMutation = usePatchHeadsTaskStatus();
   const managementHeadMutation = usePatchManagementHeadTaskStatus();
   const userMutation = usePatchTaskStatus();
   const [selectedStatus, setSelectedStatus] = useState<TasksStatus>(status);
+  // статус мог измениться после перезагрузки данных (в другом виджете или другим пользователем)
+  const [prevStatus, setPrevStatus] = useState<TasksStatus>(status);
+  if (status !== prevStatus) {
+    setPrevStatus(status);
+    setSelectedStatus(status);
+  }
 
   const isPending =
     adminMutation.isPending ||
@@ -96,7 +103,7 @@ export default function TaskStatusSelect({ taskId, status, canChange }: Props) {
     >
       <SelectTrigger
         size="sm"
-        className={`h-7 min-w-28 text-[11px] font-medium ${STATUS_CLASSES[selectedStatus]}`}
+        className={`h-7 min-w-28 text-[11px] font-medium ${STATUS_CLASSES[selectedStatus]} ${className ?? ""}`}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >

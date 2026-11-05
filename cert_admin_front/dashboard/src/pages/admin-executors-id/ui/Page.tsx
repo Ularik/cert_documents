@@ -65,6 +65,7 @@ export default function ExecutorDetailPage({ params }: Props) {
     serverError={error || updateError}
     isAdmin={currentUser?.status === "ADMIN" || currentUser?.status === "DIVISION_HEAD"}
     isManagementHead={currentUser?.status === "MANAGEMENT_HEAD"}
+    canResetPassword={currentUser?.status === "ADMIN"}
     />)}
     </>
   )

@@ -1,7 +1,7 @@
 """Правила: кто может менять задачу и кто может с ней работать (статус)."""
 from src.models.tasks import TaskTargetType
 from src.models.users import UserStatus
-from src.schemas.tasks import TaskFullOutSchema
+from src.schemas.tasks import TaskCalendarItemSchema, TaskFullOutSchema
 from src.schemas.users import UserOutSchema
 
 # Чем выше число, тем выше роль. Нижестоящий не меняет задачи вышестоящего.
@@ -56,7 +56,7 @@ def can_modify_task(
 def can_work_with_task(
     actor: UserOutSchema,
     actor_management_id: int | None,
-    task: TaskFullOutSchema,
+    task: TaskFullOutSchema | TaskCalendarItemSchema,
 ) -> bool:
     """Менять статус задачи может тот, кому она поручена (или админ)."""
     if actor.status in ADMIN_TIER:

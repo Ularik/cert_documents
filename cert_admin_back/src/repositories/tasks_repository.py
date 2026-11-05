@@ -165,6 +165,11 @@ class TasksRepository(BaseRepository):
                 self.model.deadlines >= deadline_from,
                 self.model.deadlines < deadline_to,
             )
+            .options(
+                selectinload(self.model.managements),
+                selectinload(self.model.departments),
+                selectinload(self.model.executors),
+            )
             .order_by(self.model.deadlines.asc(), self.model.id.asc())
         )
         result = await self.session.execute(query)

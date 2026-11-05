@@ -83,10 +83,16 @@ class TaskFullOutSchema(TaskCreateUpdateSchema):
     updated_at: datetime
     # заполняется сервисом для текущего пользователя
     can_edit: bool = False
+    can_change_status: bool = False
 
 class TaskApiResponseSchema(BaseModel):
     total: int
     items: list[TaskFullOutSchema]
+
+
+class _IdOnlySchema(BaseModel):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskCalendarItemSchema(BaseModel):
@@ -96,4 +102,10 @@ class TaskCalendarItemSchema(BaseModel):
     status: str
     deadlines: datetime
     is_expired: bool | None = None
+    # заполняется сервисом для текущего пользователя
+    can_change_status: bool = False
+    # нужны только для проверки прав, в ответ не попадают
+    managements: list[_IdOnlySchema] = Field(default_factory=list, exclude=True)
+    departments: list[_IdOnlySchema] = Field(default_factory=list, exclude=True)
+    executors: list[_IdOnlySchema] = Field(default_factory=list, exclude=True)
     model_config = ConfigDict(from_attributes=True, extra="ignore")

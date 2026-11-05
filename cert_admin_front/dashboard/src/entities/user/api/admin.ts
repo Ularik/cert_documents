@@ -18,3 +18,8 @@ export async function adminsUserUpdate({ id, data }:
     const res = await axiosApi.patch(`/admin/users/${id}`, data);
     return res.data;
 }
+
+export async function adminsResetUserPassword({ id, password }:
+     { id: string, password: string }): Promise<void> {
+    await axiosApi.patch(`/admin/users/${id}/password`, { password });
+}

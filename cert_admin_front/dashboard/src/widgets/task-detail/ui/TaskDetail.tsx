@@ -39,6 +39,7 @@ import { Replies as TaskReplies } from "@/features/reply-list";
 import type { UserType } from "@/entities/user";
 import type { DocumentLiteType } from "@/entities/document";
 import { formatTaskDeadline, TaskType, TaskUpdateType } from "@/entities/task";
+import { TaskStatusSelect } from "@/features/change-task-status";
 import type { TaskFormInputs } from "@/entities/task";
 
 interface TaskDetailPageProps {
@@ -228,7 +229,17 @@ export default function TaskDetail({
           <ArrowLeft className="h-4 w-4 mr-2" />К списку задач
         </Button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <span>Статус:</span>
+            <TaskStatusSelect
+              taskId={String(task.id)}
+              status={task.status}
+              canChange={Boolean(task.can_change_status)}
+              className="h-8 text-xs"
+            />
+          </div>
+
           {/* Кнопка создания ответа доступна всегда, когда форма не в режиме редактирования */}
           {!isEditing && canReply && (
             <Link

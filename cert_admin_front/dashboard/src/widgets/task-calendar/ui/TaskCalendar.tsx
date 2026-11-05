@@ -22,6 +22,7 @@ import type { TaskCalendarItemType } from "@/entities/task";
 import { useNotes } from "@/entities/note";
 import type { NoteType } from "@/entities/note";
 import { NoteFormDialog } from "@/features/note-form";
+import { TaskStatusSelect } from "@/features/change-task-status";
 import { Badge } from "@/shared/ui/badge";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
@@ -343,7 +344,11 @@ export default function TaskCalendar({
               <p className="py-6 text-sm text-zinc-500">На этот день задач и заметок нет.</p>
             ) : (
               selectedEntries.map((entry) => {
-                const marker = MARKERS[entryMarker(entry, now)];
+                const markerKind = entryMarker(entry, now);
+                const marker = MARKERS[markerKind];
+                const canChangeStatus = entry.kind === "task" && Boolean(entry.task.can_change_status);
+                // статус показывает выпадающий список; бейдж нужен, если менять нельзя или задача просрочена
+                const showBadge = !canChangeStatus || markerKind === "expired";
                 const cardClass = cn(
                   "block w-full rounded-md border bg-white p-2.5 text-left transition-colors hover:border-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900",
                   entry.kind === "note" ? "border-violet-200" : "border-zinc-200",
@@ -365,9 +370,11 @@ export default function TaskCalendar({
                           />
                         )}
                       </span>
-                      <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px]", marker.badge)}>
-                        {marker.label}
-                      </Badge>
+                      {showBadge && (
+                        <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px]", marker.badge)}>
+                          {marker.label}
+                        </Badge>
+                      )}
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm text-zinc-900">
                       {entry.kind === "note" ? entry.note.title : entry.task.title}
@@ -377,6 +384,28 @@ export default function TaskCalendar({
                     )}
                   </>
                 );
+
+                if (entry.kind === "task" && canChangeStatus) {
+                  // ссылка растянута поверх карточки, а список статусов лежит над ней:
+                  // так интерактивные элементы не вложены друг в друга
+                  return (
+                    <div key={entry.key} className={cn(cardClass, "relative")}>
+                      <Link
+                        href={`${taskBasePath}/${entry.task.id}`}
+                        className="absolute inset-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                        aria-label={`Открыть задачу «${entry.task.title}»`}
+                      />
+                      {body}
+                      <div className="relative z-10 mt-2 w-fit">
+                        <TaskStatusSelect
+                          taskId={String(entry.task.id)}
+                          status={entry.task.status}
+                          canChange
+                        />
+                      </div>
+                    </div>
+                  );
+                }
 
                 return entry.kind === "task" ? (
                   <Link key={entry.key} href={`${taskBasePath}/${entry.task.id}`} className={cardClass}>

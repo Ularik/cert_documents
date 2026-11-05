@@ -37,6 +37,7 @@ import {
 import type { UserUpdateType, UserType } from "@/entities/user";
 import { useDepartments } from "@/entities/department";
 import { useManagements } from "@/entities/management";
+import { UserPasswordResetCard } from "@/features/user-password-reset";
 import { AxiosError } from "axios";
 
 
@@ -49,6 +50,7 @@ interface Props {
   serverError: AxiosError<{ detail: string }> | null;
   isAdmin?: boolean;
   isManagementHead?: boolean;
+  canResetPassword?: boolean;
 }
 
 export default function ExecutorDetail({ 
@@ -60,6 +62,7 @@ export default function ExecutorDetail({
   serverError,
   isAdmin = false,
   isManagementHead = false,
+  canResetPassword = false,
 }: Props) {
 
   const router = useRouter();
@@ -486,6 +489,10 @@ export default function ExecutorDetail({
           </form>
         </CardContent>
       </Card>
+
+      {canResetPassword && (
+        <UserPasswordResetCard userId={user.id} username={user.username} />
+      )}
     </div>
   );
 }

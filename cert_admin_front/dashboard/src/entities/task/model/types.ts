@@ -55,6 +55,8 @@ export interface TaskType {
   id: string;
   target_type: TaskTargetType;
   can_edit: boolean;
+  /** Может ли текущий пользователь менять статус (исполнитель, его отдел/управление, админ) */
+  can_change_status?: boolean;
   status: TasksStatus;
   author_id: string;
   author: UserType;
@@ -81,6 +83,7 @@ export interface TaskCalendarItemType {
   status: TasksStatus;
   deadlines: string;
   is_expired: boolean | null;
+  can_change_status?: boolean;
 }
 
 export interface TaskCalendarParams {

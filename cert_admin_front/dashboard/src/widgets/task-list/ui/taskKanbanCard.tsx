@@ -145,7 +145,7 @@ export default function TaskKanbanCard({
               <TaskStatusSelect
                 taskId={task.id}
                 status={task.status}
-                canChange={canEdit}
+                canChange={Boolean(task.can_change_status)}
               />
             </div>
           </div>
