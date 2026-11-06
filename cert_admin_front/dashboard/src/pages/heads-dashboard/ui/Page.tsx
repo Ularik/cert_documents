@@ -16,12 +16,12 @@ export default function Page() {
     }
 
     return (
-        <div className="mx-auto max-w-5xl space-y-6">
+        <div className="mx-auto max-w-7xl space-y-6">
             <div>
                 <h1 className="text-2xl font-bold text-zinc-900">Панель отдела</h1>
                 <p className="mt-1 text-sm text-zinc-500">Сводка и срочные задачи вашего отдела</p>
             </div>
-            <TaskStatusCounters departmentId={user.department_id} />
+            <TaskStatusCounters departmentId={user.department_id} taskBasePath="/heads/tasks" />
             <TaskCalendar
                 departmentId={String(user.department_id)}
                 taskBasePath="/heads/tasks"

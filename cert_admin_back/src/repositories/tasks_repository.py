@@ -74,47 +74,32 @@ class TasksRepository(BaseRepository):
             args.append(self.model.status.in_(status))
 
         if rush is not None:
-            now = _now()
-            three_days = now + timedelta(days=3)
-
+            # Срок в ближайшее окно или уже прошёл; выполненные задачи не считаются срочными
             args.append(
-                or_(
-                    and_(
-                        self.model.deadlines > now,
-                        self.model.deadlines <= three_days
-                    ),
-                    and_(
-                        self.model.deadlines <= now,
-                        self.model.status != "DONE"
-                    )
+                and_(
+                    self.model.status != "DONE",
+                    self.model.deadlines <= _now() + timedelta(days=3),
                 )
             )
 
         if extra_rush is not None:
-            now = _now()
-            tomorrow = now + timedelta(days=1)
-
+            # Срок в ближайшее окно или уже прошёл; выполненные задачи не считаются срочными
             args.append(
-                or_(
-                    and_(
-                        self.model.deadlines > now,
-                        self.model.deadlines <= tomorrow
-                    ),
-                    and_(
-                        self.model.deadlines <= now,
-                        self.model.status != "DONE"
-                    )
+                and_(
+                    self.model.status != "DONE",
+                    self.model.deadlines <= _now() + timedelta(days=1),
                 )
             )
 
         if is_expired is not None:
+            # Выполненная задача не считается просроченной, даже если её отметили раньше
             args.append(
-                or_(
-                    and_(
-                        self.model.status != "DONE",
+                and_(
+                    self.model.status != "DONE",
+                    or_(
                         self.model.deadlines < _now(),
+                        self.model.is_expired.is_(True),
                     ),
-                    self.model.is_expired
                 )
             )
 
@@ -180,6 +165,28 @@ class TasksRepository(BaseRepository):
             update(self.model)
             .values(is_expired=True)
             .where(self.model.status != "DONE", self.model.deadlines < _now())
+        )
+        await self.session.execute(query)
+
+    async def clear_expired_status(self, task_id: int):
+        """Снимает отметку просрочки без условий (например, задача выполнена)."""
+        query = (
+            update(self.model)
+            .values(is_expired=False)
+            .where(self.model.id == task_id, self.model.is_expired.is_(True))
+        )
+        await self.session.execute(query)
+
+    async def reset_expired_status(self, task_id: int):
+        """Снимает отметку просрочки, если срок задачи перенесли в будущее или убрали."""
+        query = (
+            update(self.model)
+            .values(is_expired=False)
+            .where(
+                self.model.id == task_id,
+                self.model.is_expired.is_(True),
+                or_(self.model.deadlines.is_(None), self.model.deadlines >= _now()),
+            )
         )
         await self.session.execute(query)
 

@@ -58,7 +58,7 @@ export default function ManagementForm({
   return (
     <form
       onSubmit={handleSubmit(mutateFunc)}
-      className="mx-auto max-w-3xl space-y-6"
+      className="mx-auto max-w-5xl space-y-6"
     >
       <Card className="border-zinc-200 bg-white shadow-xs">
         <CardHeader>

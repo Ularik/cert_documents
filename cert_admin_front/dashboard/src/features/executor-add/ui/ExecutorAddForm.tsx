@@ -144,7 +144,7 @@ export default function ExecutorAddForm() {
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Кнопка «Назад» */}
       <div className="flex items-center gap-4 border-b border-zinc-200 pb-5">
         <Button

@@ -15,7 +15,7 @@ export default function UserDashboardPage() {
 
     if (isPending) {
         return (
-            <div className="mx-auto max-w-5xl space-y-6 p-6">
+            <div className="mx-auto max-w-7xl space-y-6 p-6">
                 <Skeleton className="h-10 w-64 bg-zinc-200" />
                 <div className="grid gap-4 md:grid-cols-2">
                     <Skeleton className="h-40 bg-zinc-200" />
@@ -32,7 +32,7 @@ export default function UserDashboardPage() {
     const fullName = user.last_name ? `${user.last_name} ${user.username}` : user.username;
 
     return (
-        <div className="mx-auto max-w-5xl space-y-8 p-6">
+        <div className="mx-auto max-w-7xl space-y-8 p-6">
             <header className="border-b border-zinc-200 pb-5">
                 <p className="text-sm font-medium text-zinc-500">Личный кабинет</p>
                 <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-900">Добро пожаловать, {fullName}</h1>

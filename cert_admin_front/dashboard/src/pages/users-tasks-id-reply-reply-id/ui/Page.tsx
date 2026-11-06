@@ -20,7 +20,7 @@ export default function UserReplyDetailPage({
   const { data: user, isPending: isUserPending } = useMe();
 
   if (isReplyPending || isUserPending) {
-    return <Skeleton className="mx-auto mt-6 h-96 max-w-5xl bg-zinc-200" />;
+    return <Skeleton className="mx-auto mt-6 h-96 max-w-7xl bg-zinc-200" />;
   }
 
   const canEdit = Boolean(reply?.author_id && user?.id === reply.author_id);

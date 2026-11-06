@@ -54,7 +54,7 @@ export default function TaskAdminDetailPage({
   ) {
 
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-6 text-center">
+      <div className="p-6 max-w-6xl mx-auto space-y-6 text-center">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Назад к списку
@@ -65,7 +65,7 @@ export default function TaskAdminDetailPage({
 
   if (isError || !task) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-6 text-center">
+      <div className="p-6 max-w-6xl mx-auto space-y-6 text-center">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Назад к списку
@@ -96,7 +96,7 @@ export default function TaskAdminDetailPage({
 
 function TaskDetailSkeleton() {
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       <Skeleton className="h-8 w-32 bg-zinc-200" />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

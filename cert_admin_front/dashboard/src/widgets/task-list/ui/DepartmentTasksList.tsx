@@ -26,7 +26,7 @@ export default function DepartmentTasksList({
 }: Props) {
   if (!user.department_id) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
+      <div className="mx-auto max-w-5xl p-6">
         <Card className="border-dashed border-amber-300 bg-amber-50/50">
           <CardContent className="space-y-3 p-10 text-center">
             <h1 className="font-semibold text-zinc-900">Отдел не назначен</h1>
@@ -80,7 +80,7 @@ function DepartmentTasksView({
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
+    <main className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-zinc-900">
@@ -213,7 +213,7 @@ function TasksSkeleton({ limit }: { limit: number }) {
 
 export function DepartmentTasksLoading() {
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-4 p-6">
+    <main className="mx-auto w-full max-w-5xl space-y-4 p-6">
       <Skeleton className="h-8 w-56" />
       <Skeleton className="h-4 w-full" />
     </main>

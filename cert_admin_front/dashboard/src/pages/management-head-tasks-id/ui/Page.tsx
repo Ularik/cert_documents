@@ -47,7 +47,7 @@ export default function ManagementHeadTaskDetailPage({
 
   if (isError || !task || !user) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-6 text-center">
+      <div className="p-6 max-w-6xl mx-auto space-y-6 text-center">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Назад к списку

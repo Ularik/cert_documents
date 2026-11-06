@@ -209,6 +209,9 @@ class TasksService(BaseService):
         except ObjectNotFoundException:
             raise TaskNotFoundException
 
+        # срок перенесли на будущее — задача больше не просрочена
+        await self.db.tasks.reset_expired_status(task_id)
+
         try:
             await self.update_executors_task(executor_ids=executor_ids, task_id=task_id)
             await self.db.task_departments.connect_departments_to_task(task_id=task_id, departments_ids=departments_ids)
@@ -238,6 +241,9 @@ class TasksService(BaseService):
             raise HasNotRightsToTaskException
 
         await self.db.tasks.edit(data, id=task_id)
+        if data.status == "DONE":
+            # Выполненная задача больше не просрочена
+            await self.db.tasks.clear_expired_status(task_id)
         await self.db.save()
 
     async def _mark_editable(self, actor: UserOutSchema, tasks: list[TaskFullOutSchema]) -> None:

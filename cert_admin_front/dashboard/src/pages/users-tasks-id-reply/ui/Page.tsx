@@ -20,7 +20,7 @@ export default function UserReplyPage({
   const { data: user, isPending: isUserPending } = useMe();
 
   if (isTaskPending || isUserPending) {
-    return <Skeleton className="mx-auto mt-6 h-96 max-w-2xl bg-zinc-200" />;
+    return <Skeleton className="mx-auto mt-6 h-96 max-w-4xl bg-zinc-200" />;
   }
 
   const isAssignedExecutor = Boolean(

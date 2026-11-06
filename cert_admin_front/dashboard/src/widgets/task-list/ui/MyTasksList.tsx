@@ -42,7 +42,7 @@ export default function MyTasksList({
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 p-6">
+    <main className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-zinc-900">

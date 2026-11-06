@@ -58,7 +58,7 @@ export default function UserTaskDetailPage({
   );
   if (isError || !task || !hasDepartmentAccess) {
     return (
-      <div className="mx-auto max-w-3xl space-y-5 p-6">
+      <div className="mx-auto max-w-5xl space-y-5 p-6">
         <Card className="border-red-200 bg-red-50/50">
           <CardContent className="p-8 text-center text-sm text-red-700">
             Задача не найдена или недоступна.
@@ -83,7 +83,7 @@ export default function UserTaskDetailPage({
 
 function TaskDetailSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl space-y-5 p-6">
+    <div className="mx-auto max-w-5xl space-y-5 p-6">
       <Skeleton className="h-5 w-32 bg-zinc-200" />
       <Skeleton className="h-96 w-full bg-zinc-200" />
     </div>

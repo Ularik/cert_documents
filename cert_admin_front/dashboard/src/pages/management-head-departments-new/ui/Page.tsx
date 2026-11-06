@@ -28,7 +28,7 @@ export default function CreateManagementHeadDepartmentPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
+    <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
       <div className="flex items-center gap-4 border-b border-zinc-200 pb-5">
         <Button
           variant="outline"

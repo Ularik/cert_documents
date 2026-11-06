@@ -2,7 +2,9 @@
 from datetime import datetime
 
 from httpx import AsyncClient
+from sqlalchemy import text
 
+from src.database import engine_null_pool
 from tests.api_tests.test_task_targets import create_admin_task, login, org  # noqa: F401  (фикстура org)
 
 CALENDAR_PARAMS = {
@@ -92,3 +94,38 @@ async def test_calendar_rejects_bad_period(admin_ac: AsyncClient):
         params={"deadline_from": "2026-01-01T00:00:00+06:00", "deadline_to": "2026-06-01T00:00:00+06:00"},
     )
     assert too_long.status_code == 400
+
+
+async def _expire_tasks() -> None:
+    async with engine_null_pool.begin() as conn:
+        await conn.execute(text("UPDATE tasks SET is_expired = true WHERE status != 'DONE' AND deadlines < now()"))
+
+
+async def _is_expired(task_id: int) -> bool | None:
+    async with engine_null_pool.connect() as conn:
+        return (await conn.execute(text("SELECT is_expired FROM tasks WHERE id = :id"), {"id": task_id})).scalar_one()
+
+
+async def test_moving_deadline_to_future_clears_expired(admin_ac: AsyncClient, org):
+    man_a = org["man_a"]["id"]
+    task = await create_admin_task(admin_ac, "Overdue", deadlines="2020-01-01T10:00:00+06:00", management_ids=[man_a])
+    await _expire_tasks()
+    assert await _is_expired(task["id"]) is True
+
+    # срок всё ещё в прошлом — отметка остаётся
+    still_past = await admin_ac.put(
+        f"/api/admin/tasks/{task['id']}",
+        data={"title": "Overdue", "deadlines": "2021-01-01T10:00:00+06:00", "management_ids": [man_a]},
+    )
+    assert still_past.status_code == 200, still_past.text
+    assert await _is_expired(task["id"]) is True
+
+    moved = await admin_ac.put(
+        f"/api/admin/tasks/{task['id']}",
+        data={"title": "Overdue", "deadlines": "2099-01-01T10:00:00+06:00", "management_ids": [man_a]},
+    )
+    assert moved.status_code == 200, moved.text
+    assert await _is_expired(task["id"]) is False
+
+    expired = await admin_ac.get("/api/tasks/", params={"is_expired": True})
+    assert task["id"] not in [item["id"] for item in expired.json()["items"]]

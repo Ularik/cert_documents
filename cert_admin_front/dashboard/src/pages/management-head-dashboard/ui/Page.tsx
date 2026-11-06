@@ -19,7 +19,7 @@ export default function ManagementHeadDashboard() {
     : undefined;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">
           Панель начальника управления
@@ -31,6 +31,7 @@ export default function ManagementHeadDashboard() {
       <TaskStatusCounters
         managementId={managementId}
         tasksApiPath="/management-head/tasks/"
+        taskBasePath="/management-head/tasks"
       />
       <TaskCalendar
         managementId={managementId}

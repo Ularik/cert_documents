@@ -208,7 +208,7 @@ export default function TaskDetail({
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="p-6 max-w-5xl mx-auto space-y-6"
+      className="p-6 max-w-7xl mx-auto space-y-6"
     >
       {!canEdit && (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-800 flex items-center gap-2">

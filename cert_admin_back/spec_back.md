@@ -212,7 +212,7 @@ Query-параметры списка (`QueryParamsSchema`): `department_id`, `m
 
 ## 7. Celery
 
-`celery_app/celery_app.py`: `Celery("celery_app", broker=settings.REDIS_URL, backend="rpc://")`, `include=['celery_app.tasks']`. Beat: `set-expired-tasks-every-10-minutes` → задача `tasks.set_expired_tasks`, расписание `crontab(minute="*/10")` — каждые 10 минут, т.к. срок указан с точностью до минуты. Задача: `asyncio.run(...)` → `db.tasks.set_expired_status()` (`is_expired=True` для не-DONE с `deadlines < now()`) через `AsyncSessionNullPool`. Файл `celerybeat-schedule` лежит в репозитории.
+`celery_app/celery_app.py`: `Celery("celery_app", broker=settings.REDIS_URL, backend="rpc://")`, `include=['celery_app.tasks']`. Beat: `set-expired-tasks-every-10-minutes` → задача `tasks.set_expired_tasks`, расписание `crontab(minute="*/10")` — каждые 10 минут, т.к. срок указан с точностью до минуты. Задача: `asyncio.run(...)` → `db.tasks.set_expired_status()` (`is_expired=True` для не-DONE с `deadlines < now()`) через `AsyncSessionNullPool`. При правке задачи (`TasksService.update_task`) отметка `is_expired` снимается, если новый срок не в прошлом или срок убран (`TasksRepository.reset_expired_status`). Файл `celerybeat-schedule` лежит в репозитории.
 
 ## 8. Тесты
 

@@ -65,7 +65,7 @@ export default function ManagementHeadDepartmentDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="flex items-center gap-4 border-b border-zinc-200 pb-5">
         <Button variant="outline" size="icon" onClick={() => router.back()}>
           <ArrowLeft size={18} />

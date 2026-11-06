@@ -2,17 +2,35 @@
 
 import { useState } from "react";
 import { useTasks } from "@/entities/task";
+import type { PagingParams } from "@/shared/types/main";
+
+import TaskStatusListDialog from "./TaskStatusListDialog";
+
+type CounterKey = "done" | "active" | "expired";
+
+interface CounterCard {
+  key: CounterKey;
+  label: string;
+  dialogTitle: string;
+  filters: Omit<PagingParams, "limit" | "offset">;
+  className: string;
+  valueClassName: string;
+  labelClassName: string;
+}
 
 interface TaskStatusCountersProps {
   departmentId?: string;
   managementId?: string;
   tasksApiPath?: string;
+  /** Базовый путь страницы задачи для ссылок в списке, напр. "/heads/tasks" */
+  taskBasePath?: string;
 }
 
 export default function TaskStatusCounters({
   departmentId,
   managementId,
   tasksApiPath = "/tasks/",
+  taskBasePath = "/admin/tasks",
 }: TaskStatusCountersProps) {
   const [periodDays, setPeriodDays] = useState(5);
   const periodStart = new Date();
@@ -21,44 +39,54 @@ export default function TaskStatusCounters({
   const fromDate = periodStart.toISOString().slice(0, 10);
   const toDate = new Date().toISOString().slice(0, 10);
 
-  const { data: doneData } = useTasks(
-    {
-      limit: 1,
-      offset: 0,
-      status: ["DONE"],
-      department_id: departmentId,
-      management_id: managementId,
-      from_date: fromDate,
-      to_date: toDate,
-    },
-    tasksApiPath,
-  );
+  const baseFilters = {
+    department_id: departmentId,
+    management_id: managementId,
+    from_date: fromDate,
+    to_date: toDate,
+  };
 
-  const { data: activeData } = useTasks(
+  const cards: CounterCard[] = [
     {
-      limit: 1,
-      offset: 0,
-      status: ["NEW", "PROGRESS"],
-      department_id: departmentId,
-      management_id: managementId,
-      from_date: fromDate,
-      to_date: toDate,
+      key: "done",
+      label: "ЗАВЕРШЕНЫ",
+      dialogTitle: "Завершённые задачи",
+      filters: { ...baseFilters, status: ["DONE"] },
+      className: "border-emerald-100 bg-emerald-50 hover:border-emerald-300",
+      valueClassName: "text-emerald-700",
+      labelClassName: "text-emerald-600",
     },
-    tasksApiPath,
-  );
+    {
+      key: "active",
+      label: "НОВЫЕ И В РАБОТЕ",
+      dialogTitle: "Новые задачи и задачи в работе",
+      filters: { ...baseFilters, status: ["NEW", "PROGRESS"] },
+      className: "border-amber-100 bg-amber-50 hover:border-amber-300",
+      valueClassName: "text-amber-700",
+      labelClassName: "text-amber-600",
+    },
+    {
+      key: "expired",
+      label: "ПРОСРОЧЕНЫ",
+      dialogTitle: "Просроченные задачи",
+      filters: { ...baseFilters, is_expired: true },
+      className: "border-red-100 bg-red-50 hover:border-red-300",
+      valueClassName: "text-red-700",
+      labelClassName: "text-red-600",
+    },
+  ];
 
-  const { data: expiredData } = useTasks(
-    {
-      limit: 1,
-      offset: 0,
-      department_id: departmentId,
-      management_id: managementId,
-      from_date: fromDate,
-      to_date: toDate,
-      is_expired: true,
-    },
-    tasksApiPath,
-  );
+  const { data: doneData } = useTasks({ ...cards[0].filters, limit: 1, offset: 0 }, tasksApiPath);
+  const { data: activeData } = useTasks({ ...cards[1].filters, limit: 1, offset: 0 }, tasksApiPath);
+  const { data: expiredData } = useTasks({ ...cards[2].filters, limit: 1, offset: 0 }, tasksApiPath);
+  const totals: Record<CounterKey, number> = {
+    done: doneData?.total ?? 0,
+    active: activeData?.total ?? 0,
+    expired: expiredData?.total ?? 0,
+  };
+
+  const [openKey, setOpenKey] = useState<CounterKey | null>(null);
+  const openCard = cards.find((card) => card.key === openKey);
 
   return (
     <section className="border-b border-zinc-200 pb-4">
@@ -81,25 +109,31 @@ export default function TaskStatusCounters({
         </label>
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-2 text-center">
-          <p className="text-lg font-semibold leading-none text-emerald-700">
-            {doneData?.total ?? 0}
-          </p>
-          <p className="mt-1 text-[10px] text-emerald-600">ЗАВЕРШЕНЫ</p>
-        </div>
-        <div className="rounded-md border border-amber-100 bg-amber-50 px-2 py-2 text-center">
-          <p className="text-lg font-semibold leading-none text-amber-700">
-            {activeData?.total ?? 0}
-          </p>
-          <p className="mt-1 text-[10px] text-amber-600">НОВЫЕ И В РАБОТЕ</p>
-        </div>
-        <div className="rounded-md border border-red-100 bg-red-50 px-2 py-2 text-center">
-          <p className="text-lg font-semibold leading-none text-red-700">
-            {expiredData?.total ?? 0}
-          </p>
-          <p className="mt-1 text-[10px] text-red-600">ПРОСРОЧЕНЫ</p>
-        </div>
+        {cards.map((card) => (
+          <button
+            key={card.key}
+            type="button"
+            onClick={() => setOpenKey(card.key)}
+            title="Показать список задач"
+            className={`cursor-pointer rounded-md border px-2 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 ${card.className}`}
+          >
+            <p className={`text-lg font-semibold leading-none ${card.valueClassName}`}>
+              {totals[card.key]}
+            </p>
+            <p className={`mt-1 text-[10px] ${card.labelClassName}`}>{card.label}</p>
+          </button>
+        ))}
       </div>
+      <TaskStatusListDialog
+        open={Boolean(openCard)}
+        onOpenChange={(open) => {
+          if (!open) setOpenKey(null);
+        }}
+        title={openCard ? `${openCard.dialogTitle} за последние ${periodDays} дн.` : ""}
+        filters={openCard?.filters ?? baseFilters}
+        tasksApiPath={tasksApiPath}
+        taskBasePath={taskBasePath}
+      />
     </section>
   );
 }
