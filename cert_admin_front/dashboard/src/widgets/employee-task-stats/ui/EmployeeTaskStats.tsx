@@ -16,6 +16,15 @@ const columns = [
   { key: "expired", label: "Просрочены", className: "text-red-700" },
 ] as const;
 
+const formatLoginTime = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleTimeString("ru-RU", {
+        timeZone: "Asia/Bishkek",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
 export default function EmployeeTaskStats({
   usersPath = "/admin/users",
 }: EmployeeTaskStatsProps) {
@@ -55,6 +64,9 @@ export default function EmployeeTaskStats({
               <tr>
                 <th className="px-3 py-2 font-medium">Сотрудник</th>
                 <th className="px-3 py-2 font-medium">Отдел</th>
+                <th className="px-3 py-2 text-center font-medium">
+                  Вход сегодня
+                </th>
                 {columns.map((column) => (
                   <th
                     key={column.key}
@@ -69,7 +81,7 @@ export default function EmployeeTaskStats({
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={columns.length + 2}
+                    colSpan={columns.length + 3}
                     className="px-3 py-6 text-center text-zinc-500"
                   >
                     Сотрудники не найдены
@@ -88,6 +100,13 @@ export default function EmployeeTaskStats({
                     </td>
                     <td className="px-3 py-2 text-zinc-500">
                       {row.department_title ?? "—"}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-center tabular-nums ${
+                        row.first_login_at ? "text-zinc-900" : "text-zinc-300"
+                      }`}
+                    >
+                      {formatLoginTime(row.first_login_at) ?? "—"}
                     </td>
                     {columns.map((column) => (
                       <td

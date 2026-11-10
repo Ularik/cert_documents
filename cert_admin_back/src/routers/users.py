@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Response, Body
+from fastapi import APIRouter, Response, Body, Request
 from src.schemas.users import UsersAuthSchema, UserLoginSchema, UserUpdateSchema
 from src.services.user_service import UserService
 from src.routers.dependencies import DBDep, AuthUserDep
 from src.models.users import UserStatus
+from datetime import timezone
+from src.services.auth import next_session_reset
 
 
 router = APIRouter(prefix="/users", tags=["Пользователи"])
@@ -11,7 +13,8 @@ router = APIRouter(prefix="/users", tags=["Пользователи"])
 @router.post("/login")
 async def login_user(db: DBDep, data: UserLoginSchema, response: Response):
     access_token = await UserService(db).login_user(data)
-    response.set_cookie("access_token", access_token, secure=False)
+    # Cookie удаляется браузером в 00:00 одновременно с истечением токена
+    response.set_cookie("access_token", access_token, secure=False, expires=next_session_reset().astimezone(timezone.utc))
     return {"access_token": access_token}
 
 
@@ -59,6 +62,7 @@ async def get_me(db: DBDep, id: int, user: AuthUserDep):
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    await UserService.logout_user(request.cookies.get("access_token"))
     response.delete_cookie("access_token")
     return {"success": "Вы вышли из аккаунта"}

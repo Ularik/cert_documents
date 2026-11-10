@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
+from datetime import datetime
 from typing import Literal
 
 
@@ -67,6 +68,7 @@ class UserTasksStatsOut(UserWithDepartmentOut):
     progress: int = 0
     done: int = 0
     expired: int = 0
+    first_login_at: datetime | None = None
 
 
 class UserUpdateSchema(BaseModel):

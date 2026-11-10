@@ -8,6 +8,16 @@ from src.schemas.users import UserInCookiesSchema
 import asyncio
 
 
+# Часовой пояс, в котором сбрасываются сессии (Кыргызстан, UTC+6, без перехода на летнее время).
+SESSION_RESET_TZ = timezone(timedelta(hours=6), name="Asia/Bishkek")
+
+
+def next_session_reset(now: datetime | None = None) -> datetime:
+    """Ближайшая полночь (00:00) по Бишкеку — момент принудительного сброса всех сессий."""
+    now = (now or datetime.now(timezone.utc)).astimezone(SESSION_RESET_TZ)
+    return datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), tzinfo=SESSION_RESET_TZ)
+
+
 class AuthService:
     executor = ThreadPoolExecutor(max_workers=4)
 
@@ -18,8 +28,12 @@ class AuthService:
     @staticmethod
     async def create_access_token(data: UserInCookiesSchema) -> str:
         to_encode = data.model_dump().copy()
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        now = datetime.now(timezone.utc)
+        # Токен живёт не дольше ACCESS_TOKEN_EXPIRE_MINUTES и в любом случае истекает в 00:00,
+        # поэтому все сессии автоматически сбрасываются в полночь.
+        expire = min(
+            now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+            next_session_reset(now),
         )
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -39,6 +53,18 @@ class AuthService:
             plain_password.encode('utf-8'),
             hashed_password
         )
+
+    @staticmethod
+    async def decode_token_for_logout(token: str) -> UserInCookiesSchema | None:
+        """Подпись проверяется, срок — нет: выход с истёкшей сессией тоже попадает в журнал."""
+        try:
+            user = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
+                options={"verify_exp": False},
+            )
+            return UserInCookiesSchema(**user)
+        except (jwt.InvalidTokenError, ValueError):
+            return None
 
     @staticmethod
     async def decode_token(token) -> UserInCookiesSchema:

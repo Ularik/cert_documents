@@ -4,6 +4,8 @@ from src.exceptions.exceptions import ObjectNotFoundException, DepartmentNotFoun
     TaskNotFoundException
 from src.routers.dependencies import QueryParamsSchema
 from src.schemas.users import UserOutSchema
+import logging
+
 from src.models.tasks import TaskTargetType
 from src.models.users import MANAGEMENT_SCOPED_STATUSES, UserStatus
 from src.services.base import BaseService
@@ -14,6 +16,9 @@ from src.schemas.tasks import (TaskCreateUpdateSchema, TaskUpdateSchema, TaskOut
 from fastapi import UploadFile
 from fastapi import HTTPException
 from datetime import datetime, timedelta
+from enum import Enum
+
+tasks_logger = logging.getLogger("app.tasks")
 
 # календарь запрашивает месяц с захватом соседних недель
 CALENDAR_MAX_DAYS = 62
@@ -26,6 +31,35 @@ def _with_timezone(value: datetime) -> datetime:
 
 def _unique(values: list[int]) -> list[int]:
     return list(dict.fromkeys(values))
+
+
+def _json_value(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, Enum):
+        return value.value
+    return value
+
+
+def _task_changes(old_task, new_task, management_ids, departments_ids, executor_ids, attachment_ids) -> dict:
+    """Для лога: какие поля задачи изменились (было -> стало)."""
+    changes = {}
+    for field in ("title", "description", "deadlines", "note", "target_type"):
+        old, new = _json_value(getattr(old_task, field)), _json_value(getattr(new_task, field))
+        if old != new:
+            changes[field] = {"old": old, "new": new}
+
+    related = {
+        "management_ids": ([m.id for m in old_task.managements], management_ids),
+        "departments_ids": ([d.id for d in old_task.departments], departments_ids),
+        "executor_ids": ([u.id for u in old_task.executors], executor_ids),
+        "attachment_ids": ([a.id for a in old_task.attachments], attachment_ids),
+    }
+    for field, (old, new) in related.items():
+        if sorted(old) != sorted(new):
+            changes[field] = {"old": sorted(old), "new": sorted(new)}
+
+    return {"title": new_task.title, "changes": changes}
 
 
 class TasksService(BaseService):
@@ -161,6 +195,14 @@ class TasksService(BaseService):
             raise DepartmentNotFoundException
 
         await self.db.save()
+        tasks_logger.info("Создана задача", extra={"user_id": user_id, "data": {
+            "task_id": new_task.id,
+            "title": new_task.title,
+            "management_ids": management_ids,
+            "departments_ids": departments_ids,
+            "executor_ids": executor_ids,
+            "attachment_ids": [doc.id for doc in documents],
+        }})
 
         return TaskOutSchema(
             **new_task.model_dump(),
@@ -232,6 +274,11 @@ class TasksService(BaseService):
             executors=executor_ids,
         )
         await self.db.save()
+        tasks_logger.info("Изменена задача", extra={"user_id": user_id, "data": {
+            "task_id": task_id,
+            **_task_changes(old_task, task, management_ids, departments_ids, executor_ids,
+                            [doc.id for doc in tasks_docs]),
+        }})
         return new_task_full_out
 
     async def change_status(self, task_id: int, data: TaskPatchStatusSchema, user: UserInCookiesSchema) -> None:
@@ -245,6 +292,11 @@ class TasksService(BaseService):
             # Выполненная задача больше не просрочена
             await self.db.tasks.clear_expired_status(task_id)
         await self.db.save()
+        tasks_logger.info("Изменён статус задачи", extra={"user_id": user.user_id, "data": {
+            "task_id": task_id,
+            "title": task.title,
+            "status": {"old": task.status, "new": data.status},
+        }})
 
     async def _mark_editable(self, actor: UserOutSchema, tasks: list[TaskFullOutSchema]) -> None:
         actor_management_id = await self.get_user_management_id(actor)
@@ -357,3 +409,8 @@ class TasksService(BaseService):
             raise HasNotRightsToTaskException
         await self.db.tasks.delete_bulk(id=task_id)
         await self.db.save()
+        tasks_logger.info("Удалена задача", extra={"user_id": user_id, "data": {
+            "task_id": task_id,
+            "title": task.title,
+            "author_id": task.author_id,
+        }})

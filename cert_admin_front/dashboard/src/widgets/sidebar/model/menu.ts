@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   Newspaper,
   Plane,
+  ScrollText,
   Users,
   UserRound,
 } from "lucide-react";
@@ -50,6 +51,12 @@ export const dashboardMenuItems: DashboardMenuItem[] = [
     icon: Plane,
   },
   {
+    label: "Аудит",
+    href: "/admin/audit",
+    roles: ADMIN_DASHBOARD_ROLES,
+    icon: ScrollText,
+  },
+  {
     label: "Панель",
     href: "/management-head",
     roles: ["MANAGEMENT_HEAD"],
@@ -72,6 +79,12 @@ export const dashboardMenuItems: DashboardMenuItem[] = [
     href: "/management-head/executors",
     roles: ["MANAGEMENT_HEAD"],
     icon: Plane,
+  },
+  {
+    label: "Аудит",
+    href: "/management-head/audit",
+    roles: ["MANAGEMENT_HEAD"],
+    icon: ScrollText,
   },
   {
     label: "Панель",

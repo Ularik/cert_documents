@@ -10,6 +10,7 @@ from src.routers.reply import router as reply_router
 from src.routers.departments import router as departments_router
 from src.routers.managements import router as managements_router
 from src.routers.notes import router as notes_router
+from src.routers.logs import router as logs_router
 
 
 
@@ -42,3 +43,4 @@ router.include_router(managements_router)
 router.include_router(router_tasks, dependencies=[Depends(get_general_task_user)])
 router.include_router(reply_router)
 router.include_router(notes_router)
+router.include_router(logs_router)

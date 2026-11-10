@@ -30,6 +30,8 @@ export interface UserTasksStats {
   progress: number;
   done: number;
   expired: number;
+  /** Время первого входа за сегодня (ISO) или null, если сегодня не входил */
+  first_login_at: string | null;
 }
 
 export interface UserUpdateType {

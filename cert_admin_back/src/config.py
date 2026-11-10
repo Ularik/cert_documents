@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    # Логирование (см. src/logging_conf/logging_conf.py)
+    LOG_LEVEL: str = "INFO"
+    # куда писать логи приложения по умолчанию: console, file, db_logger (через запятую)
+    LOG_HANDLERS: str = "console"
+    # переопределение по типу лога, JSON: {"auth": "db_logger", "tasks": "db_logger,file"}
+    LOG_ROUTES: dict[str, str] = {"auth": "db_logger", "tasks": "db_logger"}
+    LOG_FILE: str = "logs/app.log"
+
     model_config = SettingsConfigDict(
         env_file=(BASE_DIR / ".env", BASE_DIR.parent / ".env_back"),
         extra="ignore",

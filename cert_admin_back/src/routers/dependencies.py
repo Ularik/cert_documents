@@ -135,3 +135,16 @@ async def get_general_task_user(
             detail="Используйте отдельный маршрут начальника управления"
         )
     return user_data
+
+
+async def get_audit_user(user_data: UserInCookiesSchema = Depends(get_current_user)) -> UserInCookiesSchema:
+    """Журнал аудита: начальники управлений и выше."""
+    if user_data.status not in {"ADMIN", "DIVISION_HEAD", "MANAGEMENT_HEAD"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Недостаточно прав для просмотра журнала аудита"
+        )
+    return user_data
+
+
+AuditUserDep = Annotated[UserInCookiesSchema, Depends(get_audit_user)]

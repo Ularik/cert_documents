@@ -1,9 +1,13 @@
+import logging
+
 from src.exceptions.exceptions import UniqueObjIsExistException, UserAlreadyExistException
 from src.schemas.users import UserLoginSchema, UserInCookiesSchema, UsersAuthSchema, UserOutSchema, UserAddSchema, \
     UserUpdateSchema, UserPasswordUpdateSchema
 from src.services.base import BaseService
 from src.services.auth import AuthService
 from fastapi import HTTPException
+
+auth_logger = logging.getLogger("app.auth")
 
 
 class UserService(BaseService):
@@ -17,7 +21,17 @@ class UserService(BaseService):
 
         payload = UserInCookiesSchema(**{"user_id": user.id, "status": user.status})
         access_token = await AuthService().create_access_token(payload)
+        await self.db.users.mark_first_login_today(user.id)
+        await self.db.save()
+        auth_logger.info("Вход в систему", extra={"user_id": user.id})
         return access_token
+
+    @staticmethod
+    async def logout_user(token: str | None) -> None:
+        """Логирует выход, если по cookie можно определить пользователя."""
+        user = await AuthService.decode_token_for_logout(token) if token else None
+        if user is not None:
+            auth_logger.info("Выход из системы", extra={"user_id": user.user_id})
 
     async def set_department(self, user_id: int, department_id: int) -> UserOutSchema:
         data = UserUpdateSchema(department_id=department_id)

@@ -51,6 +51,10 @@ class Users(Base):
     )
     management: Mapped["Managements"] = relationship(back_populates="users")
     replies: Mapped[list["TaskReply"]] = relationship(back_populates="author")
+    first_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        comment="Время первого входа за текущие сутки (по Бишкеку)",
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.timezone('Asia/Bishkek', func.now()))
     updated_at: Mapped[datetime] = mapped_column(

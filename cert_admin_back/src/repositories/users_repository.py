@@ -11,7 +11,7 @@ from src.schemas.users import (
     UserTasksStatsOut,
 )
 from src.schemas.users_tasks import UsersConnectTaskSchema
-from sqlalchemy import select, insert, update, or_, and_, func
+from sqlalchemy import select, insert, update, or_, and_, func, case
 from sqlalchemy.orm import aliased
 from typing import Literal
 
@@ -110,6 +110,24 @@ class UsersRepository(BaseRepository):
         result = await self.session.execute(query)
         return [UserWithDepartmentOut.model_validate(u) for u in result.mappings().all()]
 
+    async def mark_first_login_today(self, user_id: int) -> None:
+        """Записывает время входа, только если сегодня (по Бишкеку) пользователь ещё не входил."""
+        today = func.date(func.timezone("Asia/Bishkek", func.now()))
+        query = (
+            update(self.model)
+            .where(
+                self.model.id == user_id,
+                or_(
+                    self.model.first_login_at.is_(None),
+                    func.date(func.timezone("Asia/Bishkek", self.model.first_login_at)) < today,
+                ),
+            )
+            # updated_at не трогаем: вход — не изменение учётной записи
+            .values(first_login_at=func.now(), updated_at=self.model.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        await self.session.execute(query)
+
     async def get_users_tasks_stats(
         self,
         management_id: int | None = None,
@@ -148,6 +166,15 @@ class UsersRepository(BaseRepository):
                 func.coalesce(stats.c.progress, 0).label("progress"),
                 func.coalesce(stats.c.done, 0).label("done"),
                 func.coalesce(stats.c.expired, 0).label("expired"),
+                # Вход за прошлые сутки не показываем: после сброса сессии в 00:00 поле «устаревает».
+                case(
+                    (
+                        func.date(func.timezone("Asia/Bishkek", self.model.first_login_at))
+                        == func.date(func.timezone("Asia/Bishkek", func.now())),
+                        self.model.first_login_at,
+                    ),
+                    else_=None,
+                ).label("first_login_at"),
             )
             .outerjoin(Departments, self.model.department_id == Departments.id)
             .outerjoin(stats, stats.c.user_id == self.model.id)
