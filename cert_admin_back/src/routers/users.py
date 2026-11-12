@@ -43,11 +43,13 @@ async def get_users_statuses_list():
 
 @router.get("/me")
 async def get_me(db: DBDep, user: AuthUserDep):
-    user = await UserService(db).get_user(
+    me = await UserService(db).get_user(
         id=user.user_id,
         actor_id=user.user_id,
     )
-    return user
+    actor = await db.users.get_actor(id=user.user_id)
+    # status — роль для прав доступа (ADMIN у пользователей из ADMIN_USERS), own_status — роль в БД
+    return {**me.model_dump(), "status": actor.status, "own_status": me.status}
 
 
 @router.get("/me/tasks-stats")

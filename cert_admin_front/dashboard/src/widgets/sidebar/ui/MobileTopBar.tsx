@@ -21,7 +21,7 @@ const MobileTopbar = ({ onMenuClick }: Props) => {
             CERT
           </p>
           <p className="text-xs text-zinc-500">
-            {user ? `${user.username} · ${user.status}` : "Studio Dashboard"}
+            {user ? `${user.username} · ${user.own_status ?? user.status}` : "Studio Dashboard"}
           </p>
         </div>
       </div>

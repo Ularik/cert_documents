@@ -1,3 +1,4 @@
+from src.config import settings
 from src.models import Departments
 from src.repositories.base import BaseRepository
 from src.models.users import Users
@@ -26,6 +27,16 @@ class UsersRepository(BaseRepository):
         user = result.scalars().first()
         if user:
             return UserHashedPswdSchema.model_validate(user)
+
+    async def get_actor(self, **filter_by) -> UserOutSchema:
+        """Пользователь, выполняющий действие: для проверок прав.
+
+        Пользователям из ADMIN_USERS возвращается статус ADMIN, в БД их статус не меняется.
+        """
+        user: UserOutSchema = await self.get_one(**filter_by)
+        if settings.is_env_admin(user.username, user.last_name):
+            user = user.model_copy(update={"status": "ADMIN"})
+        return user
 
     async def relate_users_tasks(self, data: UsersConnectTaskSchema):
         await self.session.execute(
@@ -78,6 +89,8 @@ class UsersRepository(BaseRepository):
                 Departments.title.label("department_title"),
             )
             .outerjoin(Departments, self.model.department_id == Departments.id)
+            # учётные записи со статусом ADMIN в списках сотрудников не показываются
+            .where(self.model.status != "ADMIN")
         )
 
         conditions = []
@@ -135,9 +148,9 @@ class UsersRepository(BaseRepository):
         user_id: int | None = None,
     ) -> list[UserTasksStatsOut]:
         """Счётчики задач по статусам для каждого сотрудника (задачи, где он исполнитель)."""
-        is_overdue = and_(
-            Tasks.status != "DONE",
-            or_(Tasks.deadlines < func.now(), Tasks.is_expired),
+        is_overdue = or_(
+            Tasks.is_expired.is_(True),
+            and_(Tasks.status != "DONE", Tasks.deadlines < func.now()),
         )
         stats = (
             select(
@@ -195,6 +208,9 @@ class UsersRepository(BaseRepository):
             query = query.where(self.model.department_id == department_id)
         if user_id is not None:
             query = query.where(self.model.id == user_id)
+        else:
+            # учётные записи со статусом ADMIN в статистике сотрудников не показываются
+            query = query.where(self.model.status != "ADMIN")
 
         result = await self.session.execute(query)
         return [UserTasksStatsOut.model_validate(u) for u in result.mappings().all()]

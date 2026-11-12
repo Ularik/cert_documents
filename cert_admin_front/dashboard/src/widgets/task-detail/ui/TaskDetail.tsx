@@ -191,14 +191,17 @@ export default function TaskDetail({
     }
   };
 
-  const formatDate = (date: Date | string) =>
-    new Date(date).toLocaleString("ru-RU", {
+  const formatDate = (date: Date | string) => {
+    return new Date(date).toLocaleString("ru-RU", {
+      timeZone: "Asia/Bishkek",
       day: "2-digit",
       month: "long",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hourCycle: "h23",
     });
+  };
 
   const lockedReason =
     task.target_type === "EXECUTORS"

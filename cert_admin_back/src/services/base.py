@@ -18,7 +18,7 @@ class BaseService:
 
     async def check_task_management_scope(self, task_id: int, actor_id: int) -> None:
         """Сотрудники и начальники управлений видят только задачи своего управления."""
-        actor = await self.db.users.get_one(id=actor_id)
+        actor = await self.db.users.get_actor(id=actor_id)
         if actor.status not in MANAGEMENT_SCOPED_STATUSES:
             return
 

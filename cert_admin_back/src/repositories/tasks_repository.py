@@ -15,6 +15,14 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _start_of_today():
+    """Начало текущих суток (00:00) по Asia/Bishkek, вычисляется в Postgres."""
+    return func.timezone(
+        "Asia/Bishkek",
+        func.date_trunc("day", func.timezone("Asia/Bishkek", func.now())),
+    )
+
+
 class TasksRepository(BaseRepository):
     model = Tasks
     schema = TaskLiteOutSchema
@@ -92,13 +100,14 @@ class TasksRepository(BaseRepository):
             )
 
         if is_expired is not None:
-            # Выполненная задача не считается просроченной, даже если её отметили раньше
+            # Просрочена: флаг выставлен в полночь (сохраняется и после завершения),
+            # либо срок уже наступил, а задача ещё не выполнена
             args.append(
-                and_(
-                    self.model.status != "DONE",
-                    or_(
+                or_(
+                    self.model.is_expired.is_(True),
+                    and_(
+                        self.model.status != "DONE",
                         self.model.deadlines < _now(),
-                        self.model.is_expired.is_(True),
                     ),
                 )
             )
@@ -161,19 +170,19 @@ class TasksRepository(BaseRepository):
         return [TaskCalendarItemSchema.model_validate(row) for row in result.scalars()]
 
     async def set_expired_status(self):
+        """Отмечает просрочку у невыполненных задач, срок которых истёк до наступившей полуночи.
+
+        Флаг фиксирует факт просрочки: после 00:00 он остаётся, даже если задачу потом завершат.
+        Задача, завершённая до полуночи (пусть и после срока), флаг не получает.
+        """
         query = (
             update(self.model)
             .values(is_expired=True)
-            .where(self.model.status != "DONE", self.model.deadlines < _now())
-        )
-        await self.session.execute(query)
-
-    async def clear_expired_status(self, task_id: int):
-        """Снимает отметку просрочки без условий (например, задача выполнена)."""
-        query = (
-            update(self.model)
-            .values(is_expired=False)
-            .where(self.model.id == task_id, self.model.is_expired.is_(True))
+            .where(
+                self.model.status != "DONE",
+                self.model.deadlines < _start_of_today(),
+                self.model.is_expired.is_not(True),
+            )
         )
         await self.session.execute(query)
 

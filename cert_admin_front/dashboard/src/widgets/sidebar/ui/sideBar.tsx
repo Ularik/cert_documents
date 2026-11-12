@@ -128,7 +128,7 @@ const Sidebar = ({ collapsed, onToggle }: Props) => {
               {user.username}
             </p>
             <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-              {user.status}
+              {user.own_status ?? user.status}
             </p>
           </div>
           <span

@@ -35,7 +35,7 @@ class DepartmentService(BaseService):
         data: DepartmentRequestCreateUpdateSchema,
         user_id: int,
     ) -> DepartmentsOutSchema:
-        actor = await self.db.users.get_one(id=user_id)
+        actor = await self.db.users.get_actor(id=user_id)
         if actor.status not in {"ADMIN", "DIVISION_HEAD", "MANAGEMENT_HEAD", "HEAD"}:
             raise HTTPException(status_code=403, detail="Недостаточно прав для создания отдела")
         if actor.status == "MANAGEMENT_HEAD" and actor.management_id != data.management_id:
@@ -79,7 +79,7 @@ class DepartmentService(BaseService):
         data: DepartmentRequestCreateUpdateSchema,
         user_id: int,
     ) -> DepartmentsOutSchema:
-        actor = await self.db.users.get_one(id=user_id)
+        actor = await self.db.users.get_actor(id=user_id)
         old_department = await self.get_one_department(department_id=dep_id)
         if actor.status == "MANAGEMENT_HEAD" and (
             actor.management_id != old_department.management_id
@@ -135,7 +135,7 @@ class DepartmentService(BaseService):
         return await self.get_one_department(department_id=dep_id)
 
     async def delete_department(self, dep_id: int, user_id: int) -> None:
-        actor = await self.db.users.get_one(id=user_id)
+        actor = await self.db.users.get_actor(id=user_id)
         department = await self.get_one_department(department_id=dep_id)
 
         if actor.status == "MANAGEMENT_HEAD" and actor.management_id != department.management_id:
@@ -163,7 +163,7 @@ class DepartmentService(BaseService):
     ) -> list[DepartmentsWithHeadsOutSchema]:
         if user_id is None:
             return await self.db.departments.get_departments()
-        actor = await self.db.users.get_one(id=user_id)
+        actor = await self.db.users.get_actor(id=user_id)
         if actor.status in MANAGEMENT_SCOPED_STATUSES:
             management_id = await self.get_user_management_id(actor)
             if management_id is None:
@@ -182,7 +182,7 @@ class DepartmentService(BaseService):
         if not res:
             raise DepartmentNotFoundException
         if user_id is not None:
-            actor = await self.db.users.get_one(id=user_id)
+            actor = await self.db.users.get_actor(id=user_id)
             management_id = await self.get_user_management_id(actor)
             if (
                 actor.status in MANAGEMENT_SCOPED_STATUSES

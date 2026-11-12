@@ -13,7 +13,10 @@ export interface UserType {
   id: string;
   username: string;
   last_name: string;
+  /** Роль для прав доступа (у пользователей из ADMIN_USERS — ADMIN) */
   status: UserRole;
+  /** Собственная роль пользователя в БД (только у /users/me) */
+  own_status?: UserRole;
   department_id: string | null;
   management_id?: string | null;
 }

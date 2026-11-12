@@ -13,7 +13,7 @@ class ManagementService(BaseService):
         user_id: int | None = None,
     ) -> list[ManagementOutSchema]:
         if user_id is not None:
-            actor = await self.db.users.get_one(id=user_id)
+            actor = await self.db.users.get_actor(id=user_id)
             if actor.status in MANAGEMENT_SCOPED_STATUSES:
                 management_id = await self.get_user_management_id(actor)
                 if management_id is None:
@@ -29,7 +29,7 @@ class ManagementService(BaseService):
         user_id: int | None = None,
     ) -> ManagementOutSchema:
         if user_id is not None:
-            actor = await self.db.users.get_one(id=user_id)
+            actor = await self.db.users.get_actor(id=user_id)
             actor_management_id = await self.get_user_management_id(actor)
             if (
                 actor.status in MANAGEMENT_SCOPED_STATUSES

@@ -34,6 +34,7 @@ docker compose up --build
 | `POSTGRES_HOST`, `POSTGRES_HOST_DOCKER` | хост; при `MODE=DOCKER` берётся `*_DOCKER` |
 | `REDIS_HOST`, `REDIS_HOST_DOCKER`, `REDIS_PORT` | брокер Celery; `REDIS_URL = redis://host:port` |
 | `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT |
+| `ADMIN_USERS` | JSON-массив `[{"username": "...", "surname": "..."}]`: этим пользователям даются права `ADMIN`, статус в БД не меняется. Роль `ADMIN` пишется в JWT при входе, а сервисы берут актора через `UsersRepository.get_actor` (подменяет `status` на `ADMIN`). `/users/me` отдаёт `status` (роль для прав) и `own_status` (роль в БД). Учётные записи со статусом `ADMIN` в БД скрыты: их нет в `GET /users/`, в `tasks-stats`, а `GET /users/{id}` отдаёт 404 всем, кроме самого пользователя |
 
 `Settings.DB_URL = postgresql+asyncpg://user:pass@host:port/db`. `.env_test` подключается через `pytest.ini` (`env_files`).
 
@@ -159,7 +160,7 @@ PlantUML `../users.puml` описывает правила создания за
 Form-поля создания/обновления: `title` (обязательно), `description`, `deadlines` (datetime, ISO 8601), `note`, `management_id`, `departments_ids[]`, `executor_ids[]`, `attachments[]`.
 
 Query-параметры списка (`QueryParamsSchema`): `department_id`, `management_id`, `executor_id` (задачи, где пользователь исполнитель), `created_at`, `from_date`, `to_date`, `status` (повторяющийся; NEW/PROGRESS/DONE), `rush`, `extra_rush`, `is_expired`, `limit` (1..50, по умолчанию 10), `offset` (≥0). Сортировка `created_at desc`.
-Семантика (`TasksRepository.get_filtered_tasks`): `from_date` → `created_at >= from_date`; `to_date` → `created_at < to_date + 1 день`; `rush` (передан любым значением, в т.ч. `false`) → срок в ближайшие 3 дня **или** просрочена и не DONE; `extra_rush` → срок завтра **или** просрочена и не DONE; `is_expired` (аналогично, любое значение) → не DONE и срок < сегодня, **или** флаг `is_expired`. Фильтры включаются по факту `is not None`, значение булева не инвертирует условие.
+Семантика (`TasksRepository.get_filtered_tasks`): `from_date` → `created_at >= from_date`; `to_date` → `created_at < to_date + 1 день`; `rush` (передан любым значением, в т.ч. `false`) → срок в ближайшие 3 дня **или** просрочена и не DONE; `extra_rush` → срок завтра **или** просрочена и не DONE; `is_expired` (аналогично, любое значение) → флаг `is_expired` (в т.ч. у DONE), **или** не DONE и срок < сейчас. Флаг `is_expired` ставит celery (`set_expired_status`) невыполненным задачам, срок которых истёк до 00:00 текущих суток (Asia/Bishkek); при переводе в DONE флаг не снимается (снимается только при переносе срока в будущее). Фильтры включаются по факту `is not None`, значение булева не инвертирует условие.
 
 ### 5.3 Админ, `/admin/*` (ADMIN, DIVISION_HEAD)
 

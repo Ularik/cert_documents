@@ -1,8 +1,14 @@
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 from typing import Literal
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+class AdminUser(BaseModel):
+    username: str
+    surname: str
 
 
 class Settings(BaseSettings):
@@ -34,6 +40,16 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+
+    # Пользователи, которым всегда выдаётся статус ADMIN (при входе и при старте приложения).
+    # JSON: ADMIN_USERS=[{"username": "Иван", "surname": "Иванов"}]
+    ADMIN_USERS: list[AdminUser] = []
+
+    def is_env_admin(self, username: str, last_name: str | None) -> bool:
+        return any(
+            a.username.strip() == username.strip() and a.surname.strip() == (last_name or "").strip()
+            for a in self.ADMIN_USERS
+        )
 
     # Логирование (см. src/logging_conf/logging_conf.py)
     LOG_LEVEL: str = "INFO"

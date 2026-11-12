@@ -6,6 +6,7 @@ from src.schemas.users import UserLoginSchema, UserInCookiesSchema, UsersAuthSch
 from src.services.base import BaseService
 from src.services.auth import AuthService
 from fastapi import HTTPException
+from src.config import settings
 
 auth_logger = logging.getLogger("app.auth")
 
@@ -19,7 +20,9 @@ class UserService(BaseService):
         if not await AuthService().verify_password(data.password, user.hashed_password):
             raise HTTPException(status_code=401, detail="Неверный пароль!")
 
-        payload = UserInCookiesSchema(**{"user_id": user.id, "status": user.status})
+        # пользователям из ADMIN_USERS — права админа, статус в БД остаётся прежним
+        status = "ADMIN" if settings.is_env_admin(user.username, user.last_name) else user.status
+        payload = UserInCookiesSchema(**{"user_id": user.id, "status": status})
         access_token = await AuthService().create_access_token(payload)
         await self.db.users.mark_first_login_today(user.id)
         await self.db.save()
@@ -63,7 +66,7 @@ class UserService(BaseService):
         data: UsersAuthSchema,
         actor_id: int,
     ) -> UserOutSchema:
-        actor = await self.db.users.get_one(id=actor_id)
+        actor = await self.db.users.get_actor(id=actor_id)
         allowed_roles = (
             {"DIVISION_HEAD", "MANAGEMENT_HEAD", "HEAD", "DEPUTY", "USER"}
             if actor.status in {"ADMIN", "DIVISION_HEAD"}
@@ -142,13 +145,16 @@ class UserService(BaseService):
     ) -> UserOutSchema:
         user = await self.db.users.get_one(id=id)
         if actor_id is not None:
-            actor = await self.db.users.get_one(id=actor_id)
+            actor = await self.db.users.get_actor(id=actor_id)
             if not await self._can_see_user(actor, user):
                 raise HTTPException(status_code=404, detail="Сотрудник не найден")
         return user
 
     async def _can_see_user(self, actor: UserOutSchema, target: UserOutSchema) -> bool:
         """Видимость сотрудников: свой отдел/управление плюс начальники выше по цепочке."""
+        if target.status == "ADMIN":
+            # учётная запись ADMIN видна только самой себе
+            return target.id == actor.id
         if actor.status in {"ADMIN", "DIVISION_HEAD"}:
             return True
         if target.id == actor.id or target.status == "DIVISION_HEAD":
@@ -170,7 +176,7 @@ class UserService(BaseService):
         superiors_management_id = None
         include_division_heads = False
         if actor_id is not None:
-            actor = await self.db.users.get_one(id=actor_id)
+            actor = await self.db.users.get_actor(id=actor_id)
             if actor.status == "MANAGEMENT_HEAD":
                 management_id = await self.get_user_management_id(actor)
                 if management_id is None:
@@ -194,7 +200,7 @@ class UserService(BaseService):
     async def get_users_tasks_stats(self, actor_id: int):
         """Статистика задач в пределах полномочий: ADMIN/DIVISION_HEAD — все,
         MANAGEMENT_HEAD — своё управление, HEAD/DEPUTY — свой отдел, USER — только он сам."""
-        actor = await self.db.users.get_one(id=actor_id)
+        actor = await self.db.users.get_actor(id=actor_id)
         if actor.status == "MANAGEMENT_HEAD":
             management_id = await self.get_user_management_id(actor)
             if management_id is None:
@@ -227,7 +233,7 @@ class UserService(BaseService):
         user_id: int,
         actor_id: int | None = None,
     ) -> UserOutSchema:
-        actor = await self.db.users.get_one(id=actor_id) if actor_id is not None else None
+        actor = await self.db.users.get_actor(id=actor_id) if actor_id is not None else None
         user = await self.db.users.get_one(id=user_id)
         if actor is not None and actor.status == "MANAGEMENT_HEAD":
             if user_id == actor_id:
@@ -375,7 +381,7 @@ class UserService(BaseService):
         actor_id: int | None = None,
     ) -> None:
         if actor_id is not None:
-            actor = await self.db.users.get_one(id=actor_id)
+            actor = await self.db.users.get_actor(id=actor_id)
             if actor.status == "MANAGEMENT_HEAD":
                 if actor_id == user_id:
                     raise HTTPException(

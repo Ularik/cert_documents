@@ -787,9 +787,8 @@ async def test_users_tasks_stats_counts_tasks_per_executor(admin_ac, test_depart
     row = rows[executor_id]
     assert (row["total"], row["new"], row["progress"], row["done"], row["expired"]) == (2, 1, 0, 1, 0)
     assert row["department_title"] == "stats department"
-    # сотрудник без задач тоже попадает в таблицу
-    admin_row = next(r for r in rows.values() if r["status"] == "ADMIN")
-    assert admin_row["total"] == 0
+    # учётные записи ADMIN в статистике не показываются
+    assert all(r["status"] != "ADMIN" for r in rows.values())
 
 
 async def test_tasks_list_filters_by_executor(admin_ac, test_department):

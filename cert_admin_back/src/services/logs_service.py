@@ -6,7 +6,7 @@ from src.services.base import BaseService
 class LogsService(BaseService):
     async def get_logs(self, actor_id: int, params: LogsQuerySchema) -> LogsApiResponseSchema:
         """ADMIN и DIVISION_HEAD видят весь журнал, начальник управления — только своё управление."""
-        actor = await self.db.users.get_one(id=actor_id)
+        actor = await self.db.users.get_actor(id=actor_id)
         if actor.status != UserStatus.MANAGEMENT_HEAD.value:
             return await self.db.logs.get_logs(params)
 

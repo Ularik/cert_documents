@@ -97,8 +97,10 @@ async def test_calendar_rejects_bad_period(admin_ac: AsyncClient):
 
 
 async def _expire_tasks() -> None:
-    async with engine_null_pool.begin() as conn:
-        await conn.execute(text("UPDATE tasks SET is_expired = true WHERE status != 'DONE' AND deadlines < now()"))
+    """Прогон celery-задачи tasks.set_expired_tasks (без asyncio.run)."""
+    from celery_app.tasks import set_status_async
+
+    await set_status_async()
 
 
 async def _is_expired(task_id: int) -> bool | None:

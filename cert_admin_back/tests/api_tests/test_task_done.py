@@ -1,5 +1,6 @@
-"""Выполненная задача не просрочена и не попадает в срочные."""
+"""Просрочка задачи: флаг is_expired ставится после 00:00 и не снимается при завершении."""
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from httpx import AsyncClient
 
@@ -12,7 +13,14 @@ def _ids(response) -> list[int]:
     return [item["id"] for item in response.json()["items"]]
 
 
-async def test_done_task_is_not_expired(admin_ac: AsyncClient, org):
+def _passed_today() -> str:
+    """Момент между сегодняшней полуночью (Asia/Bishkek) и текущим временем."""
+    now = datetime.now(ZoneInfo("Asia/Bishkek"))
+    midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return (midnight + (now - midnight) / 2).isoformat()
+
+
+async def test_expired_after_midnight_stays_expired_when_done(admin_ac: AsyncClient, org):
     task = await create_admin_task(
         admin_ac, "Overdue", deadlines="2020-01-01T10:00:00+06:00", management_ids=[org["man_a"]["id"]]
     )
@@ -23,12 +31,27 @@ async def test_done_task_is_not_expired(admin_ac: AsyncClient, org):
     response = await admin_ac.patch(f"/api/tasks/{task['id']}", json={"status": "DONE"})
     assert response.status_code == 200, response.text
 
-    assert await _is_expired(task["id"]) is False
+    # завершили после полуночи — отметка просрочки сохраняется
+    assert await _is_expired(task["id"]) is True
+    assert task["id"] in _ids(await admin_ac.get("/api/tasks/", params={"is_expired": True}))
+
+
+async def test_deadline_passed_today_is_shown_expired_without_flag(admin_ac: AsyncClient, org):
+    task = await create_admin_task(
+        admin_ac, "Today", deadlines=_passed_today(), management_ids=[org["man_a"]["id"]]
+    )
+    await _expire_tasks()
+    # полночь ещё не наступила — флаг не ставится, но задача уже отображается просроченной
+    assert not await _is_expired(task["id"])
+    assert task["id"] in _ids(await admin_ac.get("/api/tasks/", params={"is_expired": True}))
+
+    # завершили до полуночи — задача не просрочена
+    response = await admin_ac.patch(f"/api/tasks/{task['id']}", json={"status": "DONE"})
+    assert response.status_code == 200, response.text
     assert task["id"] not in _ids(await admin_ac.get("/api/tasks/", params={"is_expired": True}))
 
-    # повторный прогон celery-задачи не возвращает отметку выполненной задаче
     await _expire_tasks()
-    assert await _is_expired(task["id"]) is False
+    assert not await _is_expired(task["id"])
 
 
 async def test_done_task_is_not_rush(admin_ac: AsyncClient, org):

@@ -158,7 +158,7 @@ class TasksService(BaseService):
             executor_ids: list[int] = []
     ) -> TaskOutSchema:
 
-        user: UserOutSchema = await self.db.users.get_one(id=user_id)
+        user: UserOutSchema = await self.db.users.get_actor(id=user_id)
 
         management_ids, departments_ids, target_type = await self._resolve_targets(
             user, management_ids, departments_ids, executor_ids
@@ -225,7 +225,7 @@ class TasksService(BaseService):
             departments_ids: list[int] = [],
             executor_ids: list[int] = []
     ):
-        user: UserOutSchema = await self.db.users.get_one(id=user_id)
+        user: UserOutSchema = await self.db.users.get_actor(id=user_id)
         old_task = await self._get_full_task(task_id)
 
         if not can_modify_task(user, await self.get_user_management_id(user), old_task):
@@ -283,14 +283,12 @@ class TasksService(BaseService):
 
     async def change_status(self, task_id: int, data: TaskPatchStatusSchema, user: UserInCookiesSchema) -> None:
         task = await self._get_full_task(task_id)
-        actor = await self.db.users.get_one(id=user.user_id)
+        actor = await self.db.users.get_actor(id=user.user_id)
         if not can_work_with_task(actor, await self.get_user_management_id(actor), task):
             raise HasNotRightsToTaskException
 
+        # is_expired не трогаем: если задачу завершили после полуночи, отметка просрочки остаётся
         await self.db.tasks.edit(data, id=task_id)
-        if data.status == "DONE":
-            # Выполненная задача больше не просрочена
-            await self.db.tasks.clear_expired_status(task_id)
         await self.db.save()
         tasks_logger.info("Изменён статус задачи", extra={"user_id": user.user_id, "data": {
             "task_id": task_id,
@@ -312,7 +310,7 @@ class TasksService(BaseService):
         management_id = query_params.management_id
         actor = None
         if user_id is not None:
-            actor = await self.db.users.get_one(id=user_id)
+            actor = await self.db.users.get_actor(id=user_id)
             if actor.status in MANAGEMENT_SCOPED_STATUSES:
                 actor_management_id = await self.get_user_management_id(actor)
                 if actor_management_id is None:
@@ -362,7 +360,7 @@ class TasksService(BaseService):
         if deadline_to - deadline_from > timedelta(days=CALENDAR_MAX_DAYS):
             raise HTTPException(status_code=400, detail=f"Период не может превышать {CALENDAR_MAX_DAYS} дней")
 
-        actor = await self.db.users.get_one(id=user_id)
+        actor = await self.db.users.get_actor(id=user_id)
         actor_management_id = await self.get_user_management_id(actor)
         if actor.status in MANAGEMENT_SCOPED_STATUSES:
             if actor_management_id is None:
@@ -389,7 +387,7 @@ class TasksService(BaseService):
     ) -> TaskFullOutSchema:
         task = await self._get_full_task(task_id)
         if user_id is not None:
-            actor = await self.db.users.get_one(id=user_id)
+            actor = await self.db.users.get_actor(id=user_id)
             actor_management_id = await self.get_user_management_id(actor)
             if (
                 actor.status in MANAGEMENT_SCOPED_STATUSES
@@ -404,7 +402,7 @@ class TasksService(BaseService):
 
     async def delete_task(self, task_id: int, user_id: int) -> None:
         task = await self._get_full_task(task_id)
-        user: UserOutSchema = await self.db.users.get_one(id=user_id)
+        user: UserOutSchema = await self.db.users.get_actor(id=user_id)
         if not can_modify_task(user, await self.get_user_management_id(user), task):
             raise HasNotRightsToTaskException
         await self.db.tasks.delete_bulk(id=task_id)

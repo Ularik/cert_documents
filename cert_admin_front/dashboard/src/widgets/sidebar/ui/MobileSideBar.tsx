@@ -103,7 +103,7 @@ const MobileSidebar = ({ open, onClose }: Props) => {
                   {user.username}
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-                  {user.status}
+                  {user.own_status ?? user.status}
                 </p>
               </div>
               <span className="inline-flex items-center rounded-md bg-zinc-200/70 px-2 py-0.5 text-[10px] font-medium text-zinc-700">
