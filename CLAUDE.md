@@ -53,7 +53,7 @@ Task-creation scoping rules are documented in `users.puml`: executors must belon
 
 Celery: `celery_app/tasks.py` has `tasks.set_expired_tasks`, run every 10 minutes by beat, which marks overdue tasks expired. It uses `AsyncSessionNullPool` (not the shared engine) because it calls `asyncio.run` per invocation.
 
-Timestamps use the Postgres `Asia/Bishkek` timezone via `server_default`. Migrations live in `src/migrations/versions/`.
+Timestamps are `timestamptz` with `server_default=func.now()` (absolute instants); never default to `timezone('Asia/Bishkek', now())` — that yields naive Bishkek wall time which a UTC Postgres stores +6h off. Convert to Bishkek only for display or day boundaries (`BISHKEK_TZ` in `src/schemas/tasks.py`). Migrations live in `src/migrations/versions/`.
 
 ### Tests
 

@@ -47,9 +47,9 @@ class Departments(Base):
         uselist=False,
     )
     tasks: Mapped[list["Tasks"]] = relationship(secondary="departments_tasks", back_populates="departments")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.timezone('Asia/Bishkek', func.now()))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone('Asia/Bishkek', func.now()),
-        onupdate=func.timezone('Asia/Bishkek', func.now())
+        server_default=func.now(),
+        onupdate=func.now()
     )

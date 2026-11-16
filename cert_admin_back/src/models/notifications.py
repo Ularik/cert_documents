@@ -29,5 +29,5 @@ class Notifications(Base):
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone('Asia/Bishkek', func.now()),
+        server_default=func.now(),
     )

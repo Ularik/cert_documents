@@ -15,7 +15,7 @@ class Logs(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone('Asia/Bishkek', func.now()),
+        server_default=func.now(),
         index=True,
     )
     level: Mapped[str] = mapped_column(String(16), index=True)

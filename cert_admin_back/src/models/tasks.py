@@ -45,12 +45,12 @@ class Tasks(Base):
     executors: Mapped[list["Users"]] = relationship(secondary="users_tasks", back_populates="tasks")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone('Asia/Bishkek', func.now())
+        server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone('Asia/Bishkek', func.now()),
-        onupdate=func.timezone('Asia/Bishkek', func.now())
+        server_default=func.now(),
+        onupdate=func.now()
     )
     # Связи
     attachments: Mapped[list["TaskDocuments"]] = relationship(
@@ -85,7 +85,7 @@ class TaskReply(Base):
     content: Mapped[str | None]  # Текст ответа
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.timezone('Asia/Bishkek', func.now())
+        server_default=func.now()
     )
 
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
