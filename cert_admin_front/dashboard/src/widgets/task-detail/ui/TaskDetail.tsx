@@ -77,7 +77,13 @@ export default function TaskDetail({
   const [newFiles, setNewFiles] = useState<File[]>([]);
 
   const userDeptId = user?.department_id ? String(user.department_id) : null;
-  const { data: allUsers = [] } = useUsers(user?.department_id ?? undefined);
+  // Фильтр по своему отделу — только для ролей уровня отдела. Начальник управления
+  // (в том числе начальник отдела в режиме заместителя) выбирает из всего управления.
+  const isDepartmentScoped =
+    user?.status === "HEAD" || user?.status === "DEPUTY" || user?.status === "USER";
+  const { data: allUsers = [] } = useUsers(
+    isDepartmentScoped ? user?.department_id ?? undefined : undefined,
+  );
   const { data: departments = [] } = useDepartments();
 
   // Исполнителей можно выбирать только из отделов задачи (для задач отделам),

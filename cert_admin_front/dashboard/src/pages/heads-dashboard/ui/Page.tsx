@@ -6,6 +6,7 @@ import { RushTasks } from "@/widgets/rush-tasks";
 import { TaskCalendar } from "@/widgets/task-calendar";
 import { TaskStatusCounters } from "@/widgets/task-status-counters";
 import { useMe } from "@/entities/user";
+import { DepartmentReportButton } from "@/features/department-report";
 
 export default function Page() {
     const { data: user, isPending } = useMe();
@@ -17,9 +18,12 @@ export default function Page() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-zinc-900">Панель отдела</h1>
-                <p className="mt-1 text-sm text-zinc-500">Сводка и срочные задачи вашего отдела</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 className="text-2xl font-bold text-zinc-900">Панель отдела</h1>
+                    <p className="mt-1 text-sm text-zinc-500">Сводка и срочные задачи вашего отдела</p>
+                </div>
+                <DepartmentReportButton departmentId={user.department_id} />
             </div>
             <TaskStatusCounters departmentId={user.department_id} taskBasePath="/heads/tasks" />
             <TaskCalendar

@@ -7,6 +7,7 @@ import { LogOut } from "lucide-react";
 import { dashboardMenuItems } from "../model/menu";
 import { roleDashboardPaths, useLogout, useMe } from "@/entities/user";
 import { toast } from "sonner";
+import { ActingModeToggle } from "@/features/acting-mode-toggle";
 
 type Props = {
   open: boolean;
@@ -104,12 +105,15 @@ const MobileSidebar = ({ open, onClose }: Props) => {
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
                   {user.own_status ?? user.status}
+                  {user.acting && " · режим управления"}
                 </p>
               </div>
               <span className="inline-flex items-center rounded-md bg-zinc-200/70 px-2 py-0.5 text-[10px] font-medium text-zinc-700">
                 Active
               </span>
             </div>
+
+            <ActingModeToggle onSwitched={onClose} />
 
             <button
               onClick={handleLogout}

@@ -16,12 +16,14 @@ class DepartmentService(BaseService):
         actor_management_id: int | None,
         leader_ids: set[int],
         actor_id: int,
+        allow_self: bool = False,
     ) -> None:
+        """allow_self — заместитель начальника управления остаётся руководителем своего отдела."""
         for leader_id in leader_ids:
             leader = await self.db.users.get_one(id=leader_id)
             leader_management_id = await self.get_user_management_id(leader)
             if (
-                leader_id == actor_id
+                (leader_id == actor_id and not allow_self)
                 or actor_management_id is None
                 or leader_management_id != actor_management_id
             ):
@@ -91,6 +93,7 @@ class DepartmentService(BaseService):
                 actor_management_id=actor.management_id,
                 leader_ids=set(filter(None, [data.head_id, data.deputy_head_id])),
                 actor_id=actor.id,
+                allow_self=actor.is_acting and actor.department_id == dep_id,
             )
         if not await self.db.managements.get_managements(id=data.management_id):
             raise HTTPException(status_code=404, detail="Управление не найдено")

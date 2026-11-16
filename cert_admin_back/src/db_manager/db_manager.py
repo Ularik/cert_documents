@@ -10,6 +10,8 @@ from src.repositories.reply_repository import ReplyRepository
 from src.repositories.reply_documtns_repository import ReplyDocumentsRepository
 from src.repositories.notes_repository import NotesRepository
 from src.repositories.logs_repository import LogsRepository
+from src.repositories.notifications_repository import NotificationsRepository
+from src.repositories.reports_repository import ReportsRepository
 
 class DbManager:
     def __init__(self, session_factory):
@@ -29,6 +31,8 @@ class DbManager:
         self.task_managements = ManagementsTasksRepository(self.session)
         self.notes = NotesRepository(self.session)
         self.logs = LogsRepository(self.session)
+        self.notifications = NotificationsRepository(self.session)
+        self.reports = ReportsRepository(self.session)
         return self
 
     async def __aexit__(self, *args):

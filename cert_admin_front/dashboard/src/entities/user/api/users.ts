@@ -7,6 +7,7 @@ import type {
   UserResponse,
   LoginFormData,
   UserUpdateType,
+  UserRole,
 } from "../model/types";
 
 export async function registerUser(
@@ -45,6 +46,14 @@ export async function getMyTasksStats(): Promise<UserTasksStats> {
 
 export async function login(body: LoginFormData) {
   const res = await axiosApi.post("/users/login", body);
+  return res.data;
+}
+
+/** role: "MANAGEMENT_HEAD" — режим заместителя начальника управления, null — выход из него. */
+export async function switchRole(
+  role: "MANAGEMENT_HEAD" | null,
+): Promise<{ status: UserRole; acting: boolean }> {
+  const res = await axiosApi.post("/users/switch-role", { role });
   return res.data;
 }
 

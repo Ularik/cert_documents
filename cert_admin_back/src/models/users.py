@@ -1,7 +1,7 @@
 from typing import Optional
 
 from sqlalchemy.orm import mapped_column, Mapped, relationship
-from sqlalchemy import String, DateTime, func, ForeignKey, UniqueConstraint
+from sqlalchemy import String, DateTime, func, ForeignKey, UniqueConstraint, false
 from src.database import Base
 from datetime import datetime
 from enum import Enum
@@ -50,6 +50,11 @@ class Users(Base):
         comment="Управление"
     )
     management: Mapped["Managements"] = relationship(back_populates="users")
+    can_act_as_management_head: Mapped[bool] = mapped_column(
+        default=False,
+        server_default=false(),
+        comment="Начальник отдела может переключаться в режим заместителя начальника управления",
+    )
     replies: Mapped[list["TaskReply"]] = relationship(back_populates="author")
     first_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

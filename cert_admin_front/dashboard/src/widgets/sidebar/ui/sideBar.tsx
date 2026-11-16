@@ -7,6 +7,7 @@ import { LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { dashboardMenuItems } from "../model/menu";
 import { roleDashboardPaths, useLogout, useMe } from "@/entities/user";
 import { toast } from "sonner";
+import { ActingModeToggle } from "@/features/acting-mode-toggle";
 
 type Props = {
   collapsed: boolean;
@@ -129,6 +130,7 @@ const Sidebar = ({ collapsed, onToggle }: Props) => {
             </p>
             <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">
               {user.own_status ?? user.status}
+              {user.acting && " · режим управления"}
             </p>
           </div>
           <span
@@ -140,6 +142,8 @@ const Sidebar = ({ collapsed, onToggle }: Props) => {
             Active
           </span>
         </div>
+
+        <ActingModeToggle collapsed={collapsed} />
 
         <button
           onClick={handleLogout}

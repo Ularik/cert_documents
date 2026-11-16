@@ -62,6 +62,7 @@ export default function ManagementHeadExecutorDetailPage({
       serverError={updateUser.error}
       isAdmin={false}
       isManagementHead={currentUser?.status === "MANAGEMENT_HEAD"}
+      canGrantActing={currentUser?.status === "MANAGEMENT_HEAD" && !currentUser.acting}
     />
   );
 }

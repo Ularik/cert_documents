@@ -8,6 +8,7 @@ import { ArrowLeft, UserCheck, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { Checkbox } from "@/shared/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -51,6 +52,8 @@ interface Props {
   isAdmin?: boolean;
   isManagementHead?: boolean;
   canResetPassword?: boolean;
+  /** Можно ли выдавать начальнику отдела право работать как заместитель начальника управления */
+  canGrantActing?: boolean;
 }
 
 export default function ExecutorDetail({ 
@@ -63,6 +66,7 @@ export default function ExecutorDetail({
   isAdmin = false,
   isManagementHead = false,
   canResetPassword = false,
+  canGrantActing = false,
 }: Props) {
 
   const router = useRouter();
@@ -86,6 +90,7 @@ export default function ExecutorDetail({
         user.management_id !== null && user.management_id !== undefined
           ? Number(user.management_id)
           : null,
+      can_act_as_management_head: user.can_act_as_management_head ?? false,
     },
   });
 
@@ -135,11 +140,15 @@ export default function ExecutorDetail({
     setValue,
   ]);
 
-  const onSubmit = (data: UserUpdateType) => {
+  const onSubmit = ({ can_act_as_management_head, ...data }: UserUpdateType) => {
     handleUpdate({
       id: user.id,
       data: {
         ...data,
+        // флаг отправляем, только если его можно менять; вне роли HEAD он снимается
+        ...(canGrantActing
+          ? { can_act_as_management_head: selectedRole === "HEAD" && Boolean(can_act_as_management_head) }
+          : {}),
         management_id:
           departmentRole ||
           selectedRole === "MANAGEMENT_HEAD" ||
@@ -464,6 +473,31 @@ export default function ExecutorDetail({
                 </p>
               )}
             </div>
+            )}
+
+            {canGrantActing && selectedRole === "HEAD" && (
+              <Controller
+                name="can_act_as_management_head"
+                control={control}
+                render={({ field }) => (
+                  <label className="flex items-start gap-3 rounded-lg border border-zinc-200 p-3 cursor-pointer">
+                    <Checkbox
+                      checked={Boolean(field.value)}
+                      onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                      className="mt-0.5"
+                    />
+                    <span className="space-y-0.5">
+                      <span className="block text-sm font-medium text-zinc-900">
+                        Заместитель начальника управления
+                      </span>
+                      <span className="block text-xs text-zinc-500">
+                        Может переключаться в режим начальника управления и работать с задачами,
+                        отделами и сотрудниками всего своего управления
+                      </span>
+                    </span>
+                  </label>
+                )}
+              />
             )}
 
             {/* Кнопки действия */}

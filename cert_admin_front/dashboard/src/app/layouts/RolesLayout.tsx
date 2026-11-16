@@ -7,6 +7,7 @@ import { Sidebar } from "@/widgets/sidebar";
 import { MobileSidebar } from "@/widgets/sidebar";
 import { MobileTopbar } from "@/widgets/sidebar";
 import { DeadlineAlerts } from "@/features/deadline-alerts";
+import { TaskAssignedAlerts } from "@/features/task-assigned-alerts";
 
 type Props = {
   children: ReactNode;
@@ -28,6 +29,7 @@ export default function AdminLayout({ children }: Props) {
       ]}
     >
       <DeadlineAlerts />
+      <TaskAssignedAlerts />
       <div className="min-h-screen bg-slate-100">
         <Sidebar
           collapsed={isSidebarCollapsed}

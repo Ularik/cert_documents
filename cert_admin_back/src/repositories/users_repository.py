@@ -12,6 +12,8 @@ from src.schemas.users import (
     UserTasksStatsOut,
 )
 from src.schemas.users_tasks import UsersConnectTaskSchema
+from src.services.acting import ACTING_ELIGIBLE_STATUSES, can_act_as_management_head
+from src.utils.acting_context import is_acting_user
 from sqlalchemy import select, insert, update, or_, and_, func, case
 from sqlalchemy.orm import aliased
 from typing import Literal
@@ -32,10 +34,23 @@ class UsersRepository(BaseRepository):
         """Пользователь, выполняющий действие: для проверок прав.
 
         Пользователям из ADMIN_USERS возвращается статус ADMIN, в БД их статус не меняется.
+        Начальнику отдела в режиме заместителя начальника управления (см. acting_context)
+        возвращается статус MANAGEMENT_HEAD и управление его отдела.
         """
         user: UserOutSchema = await self.get_one(**filter_by)
         if settings.is_env_admin(user.username, user.last_name):
-            user = user.model_copy(update={"status": "ADMIN"})
+            return user.model_copy(update={"status": "ADMIN"})
+        if is_acting_user(user.id) and can_act_as_management_head(user):
+            management_id = user.management_id
+            if user.department_id is not None:
+                department = await self.session.get(Departments, user.department_id)
+                if department is not None:
+                    management_id = department.management_id
+            return user.model_copy(update={
+                "status": "MANAGEMENT_HEAD",
+                "management_id": management_id,
+                "is_acting": True,
+            })
         return user
 
     async def relate_users_tasks(self, data: UsersConnectTaskSchema):
@@ -45,6 +60,9 @@ class UsersRepository(BaseRepository):
         )
 
     async def update_user(self, data: UserUpdateSchema, user_id: int) -> UserOutSchema:
+        # флаг заместителя начальника управления снимается при уходе с должности начальника отдела
+        if data.status is not None and data.status not in ACTING_ELIGIBLE_STATUSES:
+            data = data.model_copy(update={"can_act_as_management_head": False})
         res: UserOutSchema = await self.edit(data, id=user_id)
         return res
 
@@ -63,7 +81,10 @@ class UsersRepository(BaseRepository):
         query = (
             update(self.model)
             .filter(self.model.id.in_(users_ids))
-            .values(status=status)
+            .values(
+                status=status,
+                **({} if status in ACTING_ELIGIBLE_STATUSES else {"can_act_as_management_head": False}),
+            )
             .returning(self.model)
         )
         await self.session.execute(query)
@@ -86,6 +107,7 @@ class UsersRepository(BaseRepository):
                 self.model.status,
                 self.model.department_id,
                 self.model.management_id,
+                self.model.can_act_as_management_head,
                 Departments.title.label("department_title"),
             )
             .outerjoin(Departments, self.model.department_id == Departments.id)
@@ -173,6 +195,7 @@ class UsersRepository(BaseRepository):
                 self.model.status,
                 self.model.department_id,
                 self.model.management_id,
+                self.model.can_act_as_management_head,
                 Departments.title.label("department_title"),
                 func.coalesce(stats.c.total, 0).label("total"),
                 func.coalesce(stats.c.new, 0).label("new"),

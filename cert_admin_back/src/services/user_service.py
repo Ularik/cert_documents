@@ -5,6 +5,7 @@ from src.schemas.users import UserLoginSchema, UserInCookiesSchema, UsersAuthSch
     UserUpdateSchema, UserPasswordUpdateSchema
 from src.services.base import BaseService
 from src.services.auth import AuthService
+from src.services.acting import ACTING_ELIGIBLE_STATUSES, can_act_as_management_head
 from fastapi import HTTPException
 from src.config import settings
 
@@ -28,6 +29,29 @@ class UserService(BaseService):
         await self.db.save()
         auth_logger.info("Вход в систему", extra={"user_id": user.id})
         return access_token
+
+    async def switch_role(self, user_id: int, role: str | None) -> tuple[str, str]:
+        """Включает (role=MANAGEMENT_HEAD) или выключает (role=None) режим заместителя
+        начальника управления. Возвращает новый токен и эффективную роль."""
+        user = await self.db.users.get_one(id=user_id)
+        if settings.is_env_admin(user.username, user.last_name):
+            raise HTTPException(status_code=403, detail="Режим недоступен для этой учётной записи")
+
+        if role is None:
+            payload = UserInCookiesSchema(user_id=user.id, status=user.status)
+            auth_logger.info("Выход из режима заместителя начальника управления", extra={"user_id": user.id})
+        else:
+            if not can_act_as_management_head(user):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Нет права работать как заместитель начальника управления",
+                )
+            if await self.get_user_management_id(user) is None:
+                raise HTTPException(status_code=422, detail="Отдел сотрудника не относится ни к одному управлению")
+            payload = UserInCookiesSchema(user_id=user.id, status="MANAGEMENT_HEAD", acting=True)
+            auth_logger.info("Включён режим заместителя начальника управления", extra={"user_id": user.id})
+
+        return await AuthService().create_access_token(payload), payload.status
 
     @staticmethod
     async def logout_user(token: str | None) -> None:
@@ -238,6 +262,8 @@ class UserService(BaseService):
         if actor is not None and actor.status == "MANAGEMENT_HEAD":
             if user_id == actor_id:
                 raise HTTPException(status_code=403, detail="Нельзя изменять собственную учетную запись")
+            if actor.is_acting and user.status == "MANAGEMENT_HEAD":
+                raise HTTPException(status_code=403, detail="Нельзя изменять начальника управления")
             target_management_id = user.management_id
             if user.department_id is not None:
                 target_departments = await self.db.departments.get_departments(
@@ -248,7 +274,19 @@ class UserService(BaseService):
             if target_management_id != actor.management_id:
                 raise HTTPException(status_code=404, detail="Сотрудник не найден")
 
+        if "can_act_as_management_head" in data.model_fields_set and data.can_act_as_management_head is None:
+            data = data.model_copy(update={"can_act_as_management_head": user.can_act_as_management_head})
         changed_fields = data.model_fields_set
+        if (
+            "can_act_as_management_head" in changed_fields
+            and data.can_act_as_management_head != user.can_act_as_management_head
+            and actor is not None
+            and (actor.is_acting or actor.status not in {"ADMIN", "DIVISION_HEAD", "MANAGEMENT_HEAD"})
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Недостаточно прав для назначения заместителя начальника управления",
+            )
         status = data.status if "status" in changed_fields and data.status else user.status
         if actor is not None and actor.status == "MANAGEMENT_HEAD" and status not in {
             "USER",
@@ -357,6 +395,12 @@ class UserService(BaseService):
                     status_code=403,
                     detail="Можно управлять только сотрудниками своего управления",
                 )
+
+        if data.can_act_as_management_head and status not in ACTING_ELIGIBLE_STATUSES:
+            raise HTTPException(
+                status_code=422,
+                detail="Заместителем начальника управления может быть только начальник отдела",
+            )
 
         normalized_data = data.model_copy(
             update={

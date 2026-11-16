@@ -24,13 +24,19 @@ class Tasks(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    author: Mapped["Users"] = relationship()
+    author: Mapped["Users"] = relationship(foreign_keys=[author_id])
     title: Mapped[str] = mapped_column(String(255), unique=True)
     description: Mapped[Optional[str]]
     deadlines: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_expired: Mapped[bool | None]
     status: Mapped[TasksStatus] = mapped_column(default=TasksStatus.NEW, server_default=TasksStatus.NEW.value)
     note: Mapped[str | None]
+    done_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True, comment="Когда задачу перевели в DONE",
+    )
+    done_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), comment="Кто перевёл задачу в DONE",
+    )
     target_type: Mapped[TaskTargetType] = mapped_column(
         default=TaskTargetType.EXECUTORS, server_default=TaskTargetType.EXECUTORS.value
     )

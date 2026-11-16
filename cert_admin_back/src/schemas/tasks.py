@@ -55,6 +55,13 @@ class TaskPatchStatusSchema(BaseModel):
     status: Literal["NEW", "PROGRESS", "DONE"] = Field(default="PROGRESS")
 
 
+class TaskStatusUpdateSchema(BaseModel):
+    """Смена статуса вместе с отметкой выполнения (для отчётов)."""
+    status: Literal["NEW", "PROGRESS", "DONE"]
+    done_at: datetime | None = None
+    done_by_id: int | None = None
+
+
 class TaskLiteOutSchema(TaskCreateUpdateSchema):
     id: int
     status: str

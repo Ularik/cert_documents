@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Response, Body, Request
-from src.schemas.users import UsersAuthSchema, UserLoginSchema, UserUpdateSchema
+from src.schemas.users import UsersAuthSchema, UserLoginSchema, UserUpdateSchema, SwitchRoleSchema
 from src.services.user_service import UserService
 from src.routers.dependencies import DBDep, AuthUserDep
 from src.models.users import UserStatus
@@ -48,8 +48,22 @@ async def get_me(db: DBDep, user: AuthUserDep):
         actor_id=user.user_id,
     )
     actor = await db.users.get_actor(id=user.user_id)
-    # status — роль для прав доступа (ADMIN у пользователей из ADMIN_USERS), own_status — роль в БД
-    return {**me.model_dump(), "status": actor.status, "own_status": me.status}
+    # status — роль для прав доступа (ADMIN у пользователей из ADMIN_USERS,
+    # MANAGEMENT_HEAD в режиме заместителя), own_status — роль в БД
+    return {
+        **me.model_dump(),
+        "status": actor.status,
+        "own_status": me.status,
+        "management_id": actor.management_id,
+        "acting": actor.is_acting,
+    }
+
+
+@router.post("/switch-role", summary="Включить/выключить режим заместителя начальника управления")
+async def switch_role(db: DBDep, user: AuthUserDep, data: SwitchRoleSchema, response: Response):
+    access_token, status = await UserService(db).switch_role(user_id=user.user_id, role=data.role)
+    response.set_cookie("access_token", access_token, secure=False, expires=next_session_reset().astimezone(timezone.utc))
+    return {"status": status, "acting": data.role is not None}
 
 
 @router.get("/me/tasks-stats")

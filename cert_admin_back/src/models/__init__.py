@@ -7,3 +7,4 @@ from src.models.departments_tasks import *
 from src.models.managements_tasks import *
 from src.models.notes import *
 from src.models.logs import *
+from src.models.notifications import *

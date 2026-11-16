@@ -66,6 +66,7 @@ export default function ExecutorDetailPage({ params }: Props) {
     isAdmin={currentUser?.status === "ADMIN" || currentUser?.status === "DIVISION_HEAD"}
     isManagementHead={currentUser?.status === "MANAGEMENT_HEAD"}
     canResetPassword={currentUser?.status === "ADMIN"}
+    canGrantActing={currentUser?.status === "ADMIN" || currentUser?.status === "DIVISION_HEAD"}
     />)}
     </>
   )

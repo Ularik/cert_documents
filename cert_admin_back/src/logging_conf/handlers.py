@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import insert
 
+from src.utils.acting_context import is_acting_user
 from src.utils.request_context import get_request_info
 
 
@@ -38,6 +39,12 @@ class RequestContextFilter(logging.Filter):
             record.ip_address = info.ip_address
         if not hasattr(record, "user_agent"):
             record.user_agent = info.user_agent
+        # действие в режиме заместителя начальника управления помечается в data
+        user_id = getattr(record, "user_id", None)
+        if user_id is not None and is_acting_user(user_id):
+            data = getattr(record, "data", None)
+            if data is None or isinstance(data, dict):
+                record.data = {**(data or {}), "acting_as": "MANAGEMENT_HEAD"}
         return True
 
 

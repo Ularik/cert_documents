@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from src.utils.acting_context import _acting_user_id
+
 
 @dataclass(frozen=True)
 class RequestInfo:
@@ -38,7 +40,9 @@ class RequestContextMiddleware:
             ip_address=ip[:64] if ip else None,
             user_agent=user_agent[:512] if user_agent else None,
         ))
+        acting_token = _acting_user_id.set(None)
         try:
             await self.app(scope, receive, send)
         finally:
+            _acting_user_id.reset(acting_token)
             _request_info.reset(token)

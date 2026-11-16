@@ -10,12 +10,12 @@ from src.models.tasks import TaskTargetType
 from src.models.users import MANAGEMENT_SCOPED_STATUSES, UserStatus
 from src.services.base import BaseService
 from src.services.task_access import ADMIN_TIER, can_modify_task, can_work_with_task
-from src.schemas.tasks import (TaskCreateUpdateSchema, TaskUpdateSchema, TaskOutSchema,
+from src.schemas.tasks import (TaskStatusUpdateSchema, TaskCreateUpdateSchema, TaskUpdateSchema, TaskOutSchema,
                                TaskLiteOutSchema, TaskApiResponseSchema, TaskFullOutSchema, TaskPatchStatusSchema,
                                TaskCalendarItemSchema, BISHKEK_TZ)
 from fastapi import UploadFile
 from fastapi import HTTPException
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 tasks_logger = logging.getLogger("app.tasks")
@@ -185,6 +185,9 @@ class TasksService(BaseService):
             await self.db.tasks_users.connect_user_task(task_id=new_task.id, executor_ids=executor_ids)
         except ObjectNotFoundException:
             raise UserNotFoundException
+        await self.db.notifications.add_task_assigned(
+            task_id=new_task.id, user_ids=executor_ids, author_id=user_id,
+        )
 
         try:
             await self.db.task_departments.connect_departments_to_task(task_id=new_task.id,
@@ -256,6 +259,13 @@ class TasksService(BaseService):
 
         try:
             await self.update_executors_task(executor_ids=executor_ids, task_id=task_id)
+            # уведомляем только тех, кого назначили сейчас
+            old_executor_ids = {executor.id for executor in old_task.executors}
+            await self.db.notifications.add_task_assigned(
+                task_id=task_id,
+                user_ids=[uid for uid in executor_ids if uid not in old_executor_ids],
+                author_id=user_id,
+            )
             await self.db.task_departments.connect_departments_to_task(task_id=task_id, departments_ids=departments_ids)
             await self.db.task_managements.set_managements_to_task(task_id=task_id, management_ids=management_ids)
         except ObjectNotFoundException:
@@ -288,7 +298,14 @@ class TasksService(BaseService):
             raise HasNotRightsToTaskException
 
         # is_expired не трогаем: если задачу завершили после полуночи, отметка просрочки остаётся
-        await self.db.tasks.edit(data, id=task_id)
+        if data.status == "DONE" and task.status == "DONE":
+            update = None  # уже выполнена: дату и автора выполнения не перезаписываем
+        elif data.status == "DONE":
+            update = TaskStatusUpdateSchema(status="DONE", done_at=datetime.now(timezone.utc), done_by_id=actor.id)
+        else:
+            update = TaskStatusUpdateSchema(status=data.status, done_at=None, done_by_id=None)
+        if update is not None:
+            await self.db.tasks.edit(update, exclude_unset=False, id=task_id)
         await self.db.save()
         tasks_logger.info("Изменён статус задачи", extra={"user_id": user.user_id, "data": {
             "task_id": task_id,

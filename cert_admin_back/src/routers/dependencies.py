@@ -1,12 +1,12 @@
 from typing import Annotated, Literal
 
-from pygments.lexer import default
-
 from src.database import AsyncSessionMaker
 from src.schemas.users import UserInCookiesSchema
+from src.services.acting import can_act_as_management_head
 from src.db_manager.db_manager import DbManager
 from fastapi import Depends, Request, HTTPException, status, Query
 from src.services.auth import AuthService
+from src.utils.acting_context import set_acting_user
 from pydantic import BaseModel, Field
 from datetime import datetime, date
 
@@ -75,7 +75,21 @@ def get_token(request: Request) -> str:
 
 async def get_current_user(token: str = Depends(get_token)) -> UserInCookiesSchema:
     user_data = await AuthService.decode_token(token)
-    return user_data
+    if not user_data.acting:
+        set_acting_user(None)
+        return user_data
+
+    # Режим заместителя начальника управления: флаг могли отозвать или сменить роль,
+    # поэтому каждый раз сверяемся с БД. Если права больше нет — работаем как обычный пользователь.
+    async with DbManager(session_factory=AsyncSessionMaker) as db:
+        user = await db.users.get_one_or_none(id=user_data.user_id)
+    if user is not None and can_act_as_management_head(user):
+        set_acting_user(user.id)
+        return user_data.model_copy(update={"status": "MANAGEMENT_HEAD"})
+
+    set_acting_user(None)
+    own_status = user.status if user is not None else "USER"
+    return user_data.model_copy(update={"status": own_status, "acting": False})
 
 
 AuthUserDep = Annotated[UserInCookiesSchema, Depends(get_current_user)]

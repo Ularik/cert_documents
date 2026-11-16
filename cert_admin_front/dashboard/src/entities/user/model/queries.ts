@@ -4,7 +4,8 @@ import { registerUser, login,
   getMe, logout, 
   getUsers, userUpdate, 
   userDetail, deleteUser,
-  getUsersTasksStats, getMyTasksStats
+  getUsersTasksStats, getMyTasksStats,
+  switchRole,
 } from "../api/users";
 
 
@@ -58,6 +59,19 @@ export function useMyTasksStats() {
 export function useLogin() {
   return useMutation({
     mutationFn: login,
+  });
+}
+
+/** Переключение режима «заместитель начальника управления»: после него меняются права,
+ *  поэтому сбрасываем весь кэш запросов. */
+export function useSwitchRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: switchRole,
+    onSuccess: () => {
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "me" });
+      return queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
   });
 }
 

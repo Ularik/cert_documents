@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { AxiosError } from "axios";
 import { toast } from "sonner";
 import { DepartmentCreateForm } from "@/features/department-form";
+import { DepartmentReportButton } from "@/features/department-report";
 import { Button } from "@/shared/ui/button";
 import {
   useOneDepartment,
@@ -73,6 +74,9 @@ export default function ManagementHeadDepartmentDetailPage() {
         <h1 className="text-2xl font-bold text-zinc-900">
           Редактирование отдела: {department.title}
         </h1>
+        <div className="ml-auto">
+          <DepartmentReportButton departmentId={id} departmentTitle={department.title} />
+        </div>
       </div>
       <DepartmentCreateForm
         initialValue={initialValue}

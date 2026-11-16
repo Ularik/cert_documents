@@ -19,6 +19,10 @@ export interface UserType {
   own_status?: UserRole;
   department_id: string | null;
   management_id?: string | null;
+  /** Начальнику отдела разрешено работать как заместитель начальника управления */
+  can_act_as_management_head?: boolean;
+  /** Включён режим заместителя начальника управления (только у /users/me) */
+  acting?: boolean;
 }
 
 export interface UserTasksStats {
@@ -43,6 +47,7 @@ export interface UserUpdateType {
   status: UserRole | null;
   department_id: string | null;
   management_id?: number | null;
+  can_act_as_management_head?: boolean;
 }
 
 export interface UserRegisterType {
@@ -79,6 +84,7 @@ export interface UserWithDepartment {
   department_id: string | null;  
   department_title: string | null;
   management_id?: string | null;
+  can_act_as_management_head?: boolean;
 }
 
 export interface LoginFormData {

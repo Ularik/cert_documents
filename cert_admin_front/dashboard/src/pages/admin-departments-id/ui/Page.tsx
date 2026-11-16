@@ -5,6 +5,7 @@ import {
   useUpdateDepartment,
 } from "@/entities/department";
 import { DepartmentCreateForm } from "@/features/department-form";
+import { DepartmentReportButton } from "@/features/department-report";
 import {
   DepartmentCreateType,
   DepartmentUpdateType,
@@ -125,6 +126,9 @@ export default function DepDetail() {
           <p className="text-sm text-zinc-500">
             Измените необходимые поля и сохраните изменения.
           </p>
+        </div>
+        <div className="ml-auto">
+          <DepartmentReportButton departmentId={id} departmentTitle={department.title} />
         </div>
       </div>
 
