@@ -12,12 +12,17 @@ import { useManagements } from "@/entities/management";
 import type { TaskType } from "@/entities/task";
 import { useTasks } from "@/entities/task";
 import { PaginationControl } from "@/shared/ui/pagination";
-import TasksDepartments from "./tasksDepartments";
+import TaskKanbanCard from "./taskKanbanCard";
 import { TaskScopeToggle } from "@/features/task-scope-toggle";
 import { UserType } from "@/entities/user";
 import { ADMIN_ACCESS_ROLES } from "@/entities/user";
 
 const EMPTY_TASKS: TaskType[] = [];
+
+const selectClassName =
+  "h-9 w-full min-w-56 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 disabled:cursor-not-allowed disabled:bg-zinc-100";
+const dateInputClassName =
+  "h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200";
 
 interface Props {
   user: UserType;
@@ -41,54 +46,55 @@ export default function AllTasksList({
   showScopeToggle = true,
   tasksApiPath = "/tasks/",
 }: Props) {
+  const isManagementHead = user.status === "MANAGEMENT_HEAD";
+  const isDepartmentScope = taskScope === "department";
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [rushOnly, setRushOnly] = useState(false);
-  const [requestedManagementId, setRequestedManagementId] = useState(
-    user.management_id ? String(user.management_id) : "",
-  );
+  // "" = все управления / все отделы
+  const [managementFilter, setManagementFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState(departmentId ?? "");
 
   const offset = (page - 1) * limit;
 
   const { data: departments = [] } = useDepartments();
-  const {
-    data: managements = [],
-    isLoading: isManagementsLoading,
-    isError: isManagementsError,
-  } = useManagements();
-  const visibleManagements =
-    user.status === "MANAGEMENT_HEAD"
-      ? managements.filter(
-          (management) =>
-            String(management.id) === String(user.management_id),
-        )
-      : managements;
+  const { data: managements = [], isError: isManagementsError } =
+    useManagements();
 
-  const selectedManagementId = visibleManagements.some(
-    (management) => String(management.id) === requestedManagementId,
-  )
-    ? requestedManagementId
-    : visibleManagements.length > 0
-      ? String(
-          (
-            visibleManagements.find(
-              (management) =>
-                String(management.id) === String(user.management_id),
-            ) ?? visibleManagements[0]
-          ).id,
-        )
-      : isManagementsLoading
-        ? requestedManagementId
-        : "";
-  const { data, isLoading: isTasksLoading, isError: isTasksError } = useTasks(
+  // Начальник управления видит только своё управление
+  const ownManagementId = user.management_id
+    ? String(user.management_id)
+    : "";
+  const visibleManagements = isManagementHead
+    ? managements.filter((m) => String(m.id) === ownManagementId)
+    : managements;
+  const selectedManagementId = isManagementHead
+    ? ownManagementId
+    : managementFilter;
+
+  const visibleDepartments = selectedManagementId
+    ? departments.filter(
+        (d) => String(d.management_id) === selectedManagementId,
+      )
+    : departments;
+  const selectedDepartmentId = isDepartmentScope
+    ? (departmentId ?? "")
+    : departmentFilter;
+
+  const {
+    data,
+    isLoading,
+    isError: isTasksError,
+  } = useTasks(
     {
       limit,
       offset,
-      department_id: departmentId,
+      department_id: selectedDepartmentId || undefined,
       management_id:
-        taskScope === "department" ? undefined : selectedManagementId,
+        isDepartmentScope ? undefined : selectedManagementId || undefined,
       from_date: fromDate || undefined,
       to_date: toDate || undefined,
       rush: rushOnly || undefined,
@@ -98,30 +104,50 @@ export default function AllTasksList({
 
   const tasks: TaskType[] = data?.items ?? EMPTY_TASKS;
   const total = data?.total ?? 0;
-  const selectedManagement = managements.find(
-    (management) => String(management.id) === selectedManagementId,
+  const isError = isManagementsError || isTasksError;
+  const hasFilters = Boolean(
+    fromDate ||
+      toDate ||
+      rushOnly ||
+      (!isManagementHead && managementFilter) ||
+      (!isDepartmentScope && departmentFilter),
   );
-  const isLoading =
-    isManagementsLoading ||
-    (taskScope === "department" ? isTasksLoading : Boolean(selectedManagementId) && isTasksLoading);
-  const isError =
-    isManagementsError ||
-    (Boolean(selectedManagementId) && isTasksError);
 
-  // Обработчик смены размера страницы (сбрасываем на 1-ю страницу)
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit);
     setPage(1);
   };
 
-  const handleDateChange = (setter: (value: string) => void, value: string) => {
-    setter(value);
+  const withPageReset =
+    <T,>(setter: (value: T) => void) =>
+    (value: T) => {
+      setter(value);
+      setPage(1);
+    };
+
+  const handleManagementChange = (value: string) => {
+    setManagementFilter(value);
+    // выбранный отдел может не принадлежать новому управлению
+    if (
+      departmentFilter &&
+      value &&
+      !departments.some(
+        (d) =>
+          String(d.id) === departmentFilter &&
+          String(d.management_id) === value,
+      )
+    ) {
+      setDepartmentFilter("");
+    }
     setPage(1);
   };
 
-  const resetDates = () => {
+  const resetFilters = () => {
     setFromDate("");
     setToDate("");
+    setRushOnly(false);
+    if (!isManagementHead) setManagementFilter("");
+    if (!isDepartmentScope) setDepartmentFilter("");
     setPage(1);
   };
 
@@ -133,13 +159,9 @@ export default function AllTasksList({
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 flex items-center gap-2">
               <FileText className="h-6 w-6 text-zinc-700" />
-              {taskScope === "department" ? "Задачи отдела" : "Все задачи"}
+              {isDepartmentScope ? "Задачи отдела" : "Все задачи"}
             </h1>
-            <p className="text-sm text-zinc-500 mt-1">
-              {taskScope === "department"
-                ? `Задач отдела: ${total}`
-                : `Задач управления: ${total}`}
-            </p>
+            <p className="text-sm text-zinc-500 mt-1">Найдено задач: {total}</p>
           </div>
 
           {canCreate ? (
@@ -154,8 +176,12 @@ export default function AllTasksList({
         {taskScope && showScopeToggle && (
           <TaskScopeToggle active={taskScope} basePath={scopeBasePath} />
         )}
-        {taskScope !== "department" && !isManagementsLoading && (
-          visibleManagements.length > 0 ? (
+      </div>
+
+      {/* Фильтры */}
+      <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        {!isDepartmentScope && (
+          <>
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="tasks-management"
@@ -166,12 +192,11 @@ export default function AllTasksList({
               <select
                 id="tasks-management"
                 value={selectedManagementId}
-                onChange={(event) => {
-                  setRequestedManagementId(event.target.value);
-                  setPage(1);
-                }}
-                className="h-9 w-full max-w-sm rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+                disabled={isManagementHead}
+                onChange={(event) => handleManagementChange(event.target.value)}
+                className={selectClassName}
               >
+                {!isManagementHead && <option value="">Все управления</option>}
                 {visibleManagements.map((management) => (
                   <option key={management.id} value={String(management.id)}>
                     {management.title}
@@ -179,15 +204,31 @@ export default function AllTasksList({
                 ))}
               </select>
             </div>
-          ) : (
-            <p className="text-sm text-zinc-500">
-              Управления для отображения задач не найдены.
-            </p>
-          )
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="tasks-department"
+                className="text-xs font-medium text-zinc-600"
+              >
+                Отдел
+              </label>
+              <select
+                id="tasks-department"
+                value={departmentFilter}
+                onChange={(event) =>
+                  withPageReset(setDepartmentFilter)(event.target.value)
+                }
+                className={selectClassName}
+              >
+                <option value="">Все отделы</option>
+                {visibleDepartments.map((department) => (
+                  <option key={department.id} value={String(department.id)}>
+                    {department.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
-        </div>
-
-      <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 sm:flex-row sm:flex-wrap sm:items-end">
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="tasks-from-date"
@@ -200,10 +241,8 @@ export default function AllTasksList({
             type="date"
             value={fromDate}
             max={toDate || undefined}
-            onChange={(event) =>
-              handleDateChange(setFromDate, event.target.value)
-            }
-            className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+            onChange={(event) => withPageReset(setFromDate)(event.target.value)}
+            className={dateInputClassName}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -218,34 +257,29 @@ export default function AllTasksList({
             type="date"
             value={toDate}
             min={fromDate || undefined}
-            onChange={(event) =>
-              handleDateChange(setToDate, event.target.value)
-            }
-            className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-700 outline-none focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+            onChange={(event) => withPageReset(setToDate)(event.target.value)}
+            className={dateInputClassName}
           />
         </div>
         <label className="flex h-9 items-center gap-2 text-sm text-zinc-700">
           <input
             type="checkbox"
             checked={rushOnly}
-            onChange={(event) => {
-              setRushOnly(event.target.checked);
-              setPage(1);
-            }}
+            onChange={(event) => withPageReset(setRushOnly)(event.target.checked)}
             className="h-4 w-4 rounded border-zinc-300 accent-zinc-900"
           />
           Только срочные
         </label>
-        {(fromDate || toDate) && (
+        {hasFilters && (
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={resetDates}
+            onClick={resetFilters}
             className="h-9 gap-2 border-zinc-200 bg-white text-zinc-600"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Сбросить период
+            Сбросить фильтры
           </Button>
         )}
       </div>
@@ -260,50 +294,29 @@ export default function AllTasksList({
       {/* Список задач */}
       {isLoading ? (
         <TasksSkeleton limit={limit} />
-      ) : taskScope !== "department" && !selectedManagementId ? (
-        <Card className="border-dashed border-zinc-300 bg-zinc-50/50">
-          <CardContent className="p-12 text-center space-y-3">
-            <FileText className="h-10 w-10 mx-auto text-zinc-400" />
-            <p className="text-zinc-600 font-medium">
-              Выберите управление для просмотра задач
-            </p>
-          </CardContent>
-        </Card>
       ) : tasks.length === 0 ? (
         <Card className="border-dashed border-zinc-300 bg-zinc-50/50">
           <CardContent className="p-12 text-center space-y-3">
             <FileText className="h-10 w-10 mx-auto text-zinc-400" />
             <p className="text-zinc-600 font-medium">Задачи не найдены</p>
             <p className="text-xs text-zinc-400">
-              Создайте первую задачу, чтобы она появилась в списке
+              {hasFilters
+                ? "Попробуйте изменить фильтры"
+                : "Создайте первую задачу, чтобы она появилась в списке"}
             </p>
           </CardContent>
         </Card>
       ) : (
-        taskScope === "department" ? (
-          <TasksDepartments
-            tasks={tasks}
-            departments={departments}
-            departmentId={departmentId}
-            taskBasePath={taskBasePath}
-          />
-        ) : (
-          <section className="space-y-3">
-            {selectedManagement && (
-              <h2 className="border-b border-zinc-200 pb-2 text-lg font-semibold text-zinc-800">
-                {selectedManagement.title}
-              </h2>
-            )}
-            <TasksDepartments
-              tasks={tasks}
-              departments={departments.filter(
-                (department) =>
-                  String(department.management_id) === selectedManagementId,
-              )}
+        <div className="space-y-3">
+          {tasks.map((task) => (
+            <TaskKanbanCard
+              key={task.id}
+              task={task}
               taskBasePath={taskBasePath}
+              expandable
             />
-          </section>
-        )
+          ))}
+        </div>
       )}
 
       {/* Пагинация */}

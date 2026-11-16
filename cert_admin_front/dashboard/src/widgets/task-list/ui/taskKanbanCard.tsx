@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -8,24 +9,30 @@ import {
   Calendar,
   CalendarClock,
   Pencil,
+  ChevronDown,
+  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import type { TaskType } from "@/entities/task";
-import { useMe } from "@/entities/user";
 import { TaskStatusSelect } from "@/features/change-task-status";
 
 interface Props {
   task: TaskType;
   taskBasePath?: string;
+  /** Клик по карточке раскрывает описание вместо перехода на деталку */
+  expandable?: boolean;
 }
 
 export default function TaskKanbanCard({
   task,
   taskBasePath = "tasks",
+  expandable = false,
 }: Props) {
   const router = useRouter();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const detailHref = `${taskBasePath}/${task.id}`;
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("ru-RU", {
@@ -53,9 +60,12 @@ export default function TaskKanbanCard({
     router.push(`${taskBasePath}/${task.id}/`);
   };
 
-  return (
-    <Link href={`${taskBasePath}/${task.id}`} className="block group">
-      <Card className="border-zinc-200 py-1 group-hover:border-zinc-400 group-hover:shadow-sm transition-all bg-white cursor-pointer relative">
+  const card = (
+      <Card
+        className={`border-zinc-200 py-1 group-hover:border-zinc-400 group-hover:shadow-sm transition-all bg-white cursor-pointer relative ${
+          isExpanded ? "border-zinc-400 shadow-sm" : ""
+        }`}
+      >
         <CardContent className="p-3 space-y-2.5">
           {/* 1. Сверху: Отделы и Исполнители */}
           <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs pr-6">
@@ -121,9 +131,41 @@ export default function TaskKanbanCard({
           )}
 
           {/* 2. Заголовок задачи */}
-          <h4 className="font-medium text-zinc-900 text-sm line-clamp-2 group-hover:text-zinc-700 leading-snug">
-            {task.title}
-          </h4>
+          <div className="flex items-start gap-2">
+            <h4
+              className={`flex-1 font-medium text-zinc-900 text-sm group-hover:text-zinc-700 leading-snug ${
+                isExpanded ? "" : "line-clamp-2"
+              }`}
+            >
+              {task.title}
+            </h4>
+            {expandable && (
+              <ChevronDown
+                className={`mt-0.5 h-4 w-4 shrink-0 text-zinc-400 transition-transform ${
+                  isExpanded ? "rotate-180" : ""
+                }`}
+              />
+            )}
+          </div>
+
+          {/* Раскрытое описание */}
+          {expandable && isExpanded && (
+            <div className="space-y-3 rounded-lg bg-zinc-50 p-3">
+              <p className="whitespace-pre-line break-words text-sm text-zinc-700">
+                {task.description?.trim() || (
+                  <span className="italic text-zinc-400">Описание отсутствует</span>
+                )}
+              </p>
+              <Link
+                href={detailHref}
+                onClick={(event) => event.stopPropagation()}
+                className="inline-flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800"
+              >
+                Подробнее
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          )}
 
           <div className="flex items-center gap-1 text-[11px] text-zinc-500">
             <CalendarClock className="h-3 w-3" />
@@ -151,6 +193,32 @@ export default function TaskKanbanCard({
           </div>
         </CardContent>
       </Card>
-    </Link>
+  );
+
+  if (!expandable) {
+    return (
+      <Link href={detailHref} className="block group">
+        {card}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={isExpanded}
+      onClick={() => setIsExpanded((value) => !value)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setIsExpanded((value) => !value);
+        }
+      }}
+      className="block group rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+    >
+      {card}
+    </div>
   );
 }
