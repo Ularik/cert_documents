@@ -29,6 +29,7 @@ import {
   X,
   Check,
   MessageSquarePlus,
+  UserPlus,
 } from "lucide-react";
 
 import { TaskMainInfo } from "@/features/update-task";
@@ -51,6 +52,9 @@ interface TaskDetailPageProps {
   isDeleting?: boolean;
   replyBasePath?: string;
   documentDownloadBasePath?: string;
+  /** Назначение исполнителей из своего отдела (начальник отдела), без правки задачи */
+  assignExecutorsFunc?: (executorIds: string[]) => Promise<unknown>;
+  isAssigning?: boolean;
 }
 
 function parseTaskDeadline(deadline: Date | null) {
@@ -69,10 +73,13 @@ export default function TaskDetail({
   isDeleting = false,
   replyBasePath = "/heads/tasks",
   documentDownloadBasePath = "/api/tasks/task-documents",
+  assignExecutorsFunc,
+  isAssigning = false,
 }: TaskDetailPageProps) {
   const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isAssignMode, setIsAssignMode] = useState(false);
   const [existingFiles, setExistingFiles] = useState<DocumentLiteType[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
 
@@ -102,10 +109,39 @@ export default function TaskDetail({
     );
   }, [allUsers, departments, task]);
 
-  // Права на изменение вычисляет бэкенд: автор, либо вышестоящий для задач,
-  // поручённых конкретным сотрудникам. Общие задачи управлений/отделов меняет только автор.
+  // Права на изменение вычисляет бэкенд: автор или вышестоящий в своей зоне. Общие задачи
+  // управлений/отделов, кроме автора, меняют только админы и начальник управления.
   const canEdit = Boolean(task.can_edit);
   const canDelete = canEdit;
+  // если задачу можно править целиком, исполнители меняются в обычном редактировании
+  const canAssign = !canEdit && Boolean(task.can_assign_executors) && Boolean(assignExecutorsFunc);
+
+  // в режиме назначения выбираются только сотрудники своего отдела;
+  // исполнителей других отделов бэкенд сохраняет сам
+  const ownDepartmentExecutorIds = () =>
+    (task.executors || [])
+      .filter((e) => userDeptId != null && String(e.department_id) === userDeptId)
+      .map((e) => String(e.id));
+
+  const startAssign = () => {
+    form.setValue("executor_ids", ownDepartmentExecutorIds());
+    setIsAssignMode(true);
+  };
+
+  const cancelAssign = () => {
+    form.setValue("executor_ids", task.executors?.map((e) => String(e.id)) || []);
+    setIsAssignMode(false);
+  };
+
+  const saveAssign = async () => {
+    if (!assignExecutorsFunc) return;
+    try {
+      await assignExecutorsFunc(form.getValues("executor_ids"));
+      setIsAssignMode(false);
+    } catch (error) {
+      console.error("Ошибка назначения исполнителей:", error);
+    }
+  };
 
   const canReply = useMemo(() => {
     if (task.executors?.some((executor) => String(executor.id) === String(user.id))) {
@@ -209,10 +245,11 @@ export default function TaskDetail({
     });
   };
 
-  const lockedReason =
-    task.target_type === "EXECUTORS"
+  const lockedReason = canAssign
+    ? "Изменять задачу может только автор, но вы можете назначить исполнителей из своего отдела."
+    : task.target_type === "EXECUTORS"
       ? "Вы не можете редактировать эту задачу: она поручена сотрудникам другим лицом или за пределами вашей зоны."
-      : "Задача поручена управлениям или отделам целиком — изменять её может только автор.";
+      : "Задача поручена управлениям или отделам целиком — изменять её может автор или вышестоящий руководитель.";
 
   return (
     <form
@@ -249,8 +286,49 @@ export default function TaskDetail({
             />
           </div>
 
+          {canAssign &&
+            (!isAssignMode ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={startAssign}
+                className="text-zinc-700 border-zinc-300"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Назначить исполнителей
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelAssign}
+                  disabled={isAssigning}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Отмена
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={saveAssign}
+                  disabled={isAssigning}
+                  className="bg-zinc-900 text-white hover:bg-zinc-800"
+                >
+                  {isAssigning ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  Сохранить исполнителей
+                </Button>
+              </>
+            ))}
+
           {/* Кнопка создания ответа доступна всегда, когда форма не в режиме редактирования */}
-          {!isEditing && canReply && (
+          {!isEditing && !isAssignMode && canReply && (
             <Link
               href={`${replyBasePath}/${task.id}/reply/new`}
               className={buttonVariants({
@@ -377,7 +455,7 @@ export default function TaskDetail({
 
         <div className="space-y-6">
           <TaskExecutors
-            isEditing={isEditing && canEdit}
+            isEditing={(isEditing && canEdit) || (isAssignMode && canAssign)}
             executors={task.executors || []}
             form={form}
             allUsers={users}

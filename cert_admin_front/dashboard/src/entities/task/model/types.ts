@@ -57,6 +57,8 @@ export interface TaskType {
   can_edit: boolean;
   /** Может ли текущий пользователь менять статус (исполнитель, его отдел/управление, админ) */
   can_change_status?: boolean;
+  /** Начальник отдела может назначить исполнителей из своего отдела, не меняя задачу */
+  can_assign_executors?: boolean;
   status: TasksStatus;
   author_id: string;
   author: UserType;

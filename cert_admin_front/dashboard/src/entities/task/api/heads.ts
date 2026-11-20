@@ -29,6 +29,20 @@ export async function patchHeadsTaskStatus({
   return res.data;
 }
 
+/** Начальник отдела назначает исполнителей из своего отдела; тип задачи не меняется */
+export async function patchHeadsTaskExecutors({
+  id,
+  executorIds,
+}: {
+  id: string;
+  executorIds: string[];
+}) {
+  const res = await axiosApi.patch(`/head/tasks/${id}/executors`, {
+    executor_ids: executorIds.map(Number),
+  });
+  return res.data;
+}
+
 export async function deleteHeadsTask(id: string) {
   await axiosApi.delete(`/head/tasks/${id}`);
 }

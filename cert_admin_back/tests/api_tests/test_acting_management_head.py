@@ -171,6 +171,100 @@ async def test_acting_head_cannot_touch_management_head_or_grant_flag(admin_ac, 
     assert grant.status_code == 403
 
 
+async def test_acting_head_edits_any_task_of_own_management(admin_ac, org):
+    # задачи вышестоящих: на всё управление, на отдел, на сотрудников, и задача чужого управления
+    await login(admin_ac, "admin")
+    whole = (await admin_ac.post("/api/admin/tasks/", data={
+        "title": "admin whole A", "management_ids": [org["man_a"]["id"]]})).json()
+    other_dep = (await admin_ac.post("/api/admin/tasks/", data={
+        "title": "admin dep A2", "departments_ids": [org["dep_a2"]["id"]]})).json()
+    spanning = (await admin_ac.post("/api/admin/tasks/", data={
+        "title": "admin A+B", "management_ids": [org["man_a"]["id"], org["man_b"]["id"]]})).json()
+    foreign = (await admin_ac.post("/api/admin/tasks/", data={
+        "title": "admin B", "management_ids": [org["man_b"]["id"]]})).json()
+    await login(admin_ac, "mh-a")
+    by_mh = (await admin_ac.post("/api/management-head/tasks/", data={
+        "title": "mh executors", "executor_ids": [org["user_a2"]["id"]]})).json()
+
+    await set_flag(admin_ac, org["head_a1"]["id"], True, management_id=org["man_a"]["id"])
+    await login(admin_ac, "head-a1")
+    # в обычном режиме начальник отдела эти задачи не правит
+    assert (await admin_ac.get(f"/api/tasks/{whole['id']}")).json()["can_edit"] is False
+    await act(admin_ac)
+
+    detail = (await admin_ac.get(f"/api/management-head/tasks/{whole['id']}")).json()
+    assert detail["can_edit"] is True
+
+    edited = await admin_ac.put(
+        f"/api/management-head/tasks/{whole['id']}",
+        data={"title": "renamed by acting", "executor_ids": [org["user_a1"]["id"]]},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["title"] == "renamed by acting"
+    assert edited.json()["author_id"] == whole["author_id"]
+
+    for task in (other_dep, by_mh):
+        put = await admin_ac.put(
+            f"/api/management-head/tasks/{task['id']}",
+            data={"title": f"{task['title']} edited by acting", "departments_ids": [org["dep_a2"]["id"]]},
+        )
+        assert put.status_code == 200, (task["title"], put.text)
+
+    # задача сразу нескольких управлений и задача чужого управления — нельзя
+    spanning_put = await admin_ac.put(
+        f"/api/management-head/tasks/{spanning['id']}", data={"title": "hacked"})
+    assert spanning_put.status_code == 403
+    foreign_put = await admin_ac.put(
+        f"/api/management-head/tasks/{foreign['id']}", data={"title": "hacked"})
+    assert foreign_put.status_code in (403, 404)
+
+    assert (await admin_ac.delete(f"/api/management-head/tasks/{other_dep['id']}")).status_code == 200
+
+    # после выхода из режима права пропадают
+    await act(admin_ac, None)
+    assert (await admin_ac.get(f"/api/tasks/{by_mh['id']}")).json()["can_edit"] is False
+
+
+async def test_management_head_edits_shared_tasks_of_head_and_acting_head(admin_ac, org):
+    # начальник отдела ставит задачу на весь свой отдел
+    await login(admin_ac, "head-a1")
+    dep_task = (await admin_ac.post("/api/head/tasks/", data={"title": "head whole dep"})).json()
+    assert dep_task["target_type"] == "DEPARTMENTS"
+
+    # он же в режиме И.О. — на всё управление
+    await set_flag(admin_ac, org["head_a1"]["id"], True, management_id=org["man_a"]["id"])
+    await login(admin_ac, "head-a1")
+    await act(admin_ac)
+    whole = (await admin_ac.post("/api/management-head/tasks/", data={"title": "acting whole A"})).json()
+    assert whole["target_type"] == "MANAGEMENTS"
+
+    await login(admin_ac, "mh-a")
+    for task, departments in ((dep_task, [org["dep_a1"]["id"]]), (whole, [])):
+        detail = (await admin_ac.get(f"/api/management-head/tasks/{task['id']}")).json()
+        assert detail["can_edit"] is True, task["title"]
+        put = await admin_ac.put(
+            f"/api/management-head/tasks/{task['id']}",
+            data={"title": f"{task['title']} by mh", "departments_ids": departments},
+        )
+        assert put.status_code == 200, (task["title"], put.text)
+        assert put.json()["author_id"] == org["head_a1"]["id"]
+        assert put.json()["target_type"] == task["target_type"]
+
+    # админ тоже правит общую задачу начальника отдела
+    await login(admin_ac, "admin")
+    by_admin = await admin_ac.put(
+        f"/api/admin/tasks/{dep_task['id']}",
+        data={"title": "head whole dep by admin", "departments_ids": [org["dep_a1"]["id"]]},
+    )
+    assert by_admin.status_code == 200, by_admin.text
+
+    # заместитель начальника отдела по-прежнему не правит общую задачу своего начальника
+    await login(admin_ac, "head-a1")
+    shared = (await admin_ac.post("/api/head/tasks/", data={"title": "head shared 2"})).json()
+    await login(admin_ac, "deputy-a1")
+    assert (await admin_ac.put(f"/api/tasks/{shared['id']}", data={"title": "hacked"})).status_code == 403
+
+
 @pytest.mark.parametrize("role", ["ADMIN", "HEAD"])
 async def test_switch_role_rejects_other_roles(admin_ac, org, role):
     await login(admin_ac, "head-a1")

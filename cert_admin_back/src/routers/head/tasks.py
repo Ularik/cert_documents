@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Form, UploadFile, Body
 
-from src.schemas.tasks import TaskPatchStatusSchema
+from src.schemas.tasks import TaskExecutorsAssignSchema, TaskPatchStatusSchema
 from src.services.tasks_service import TasksService
 from src.routers.dependencies import DBDep, AuthUserDep, QueryParamsDep
 
@@ -73,6 +73,17 @@ async def patch_task(
         status: TaskPatchStatusSchema,
 ):
     await TasksService(db).change_status(data=status, task_id=id, user=user)
+
+
+@router.patch("/{id}/executors")
+async def assign_task_executors(
+        db: DBDep,
+        user: AuthUserDep,
+        id: int,
+        data: TaskExecutorsAssignSchema,
+):
+    # начальник отдела назначает исполнителей из своего отдела (тип задачи не меняется)
+    return await TasksService(db).assign_executors(task_id=id, user_id=user.user_id, executor_ids=data.executor_ids)
 
 
 @router.delete("/{id}")

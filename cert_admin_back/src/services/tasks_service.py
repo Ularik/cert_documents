@@ -9,7 +9,7 @@ import logging
 from src.models.tasks import TaskTargetType
 from src.models.users import MANAGEMENT_SCOPED_STATUSES, UserStatus
 from src.services.base import BaseService
-from src.services.task_access import ADMIN_TIER, can_modify_task, can_work_with_task
+from src.services.task_access import ADMIN_TIER, can_assign_executors, can_modify_task, can_work_with_task
 from src.schemas.tasks import (TaskStatusUpdateSchema, TaskCreateUpdateSchema, TaskUpdateSchema, TaskOutSchema,
                                TaskLiteOutSchema, TaskApiResponseSchema, TaskFullOutSchema, TaskPatchStatusSchema,
                                TaskCalendarItemSchema, BISHKEK_TZ)
@@ -318,6 +318,47 @@ class TasksService(BaseService):
         for task in tasks:
             task.can_edit = can_modify_task(actor, actor_management_id, task)
             task.can_change_status = can_work_with_task(actor, actor_management_id, task)
+            task.can_assign_executors = can_assign_executors(actor, actor_management_id, task)
+
+    async def assign_executors(self, task_id: int, user_id: int, executor_ids: list[int]) -> TaskFullOutSchema:
+        """Начальник отдела назначает исполнителей задачи из своего отдела.
+
+        Исполнители из других отделов сохраняются, тип задачи и её адресаты не меняются.
+        """
+        actor: UserOutSchema = await self.db.users.get_actor(id=user_id)
+        task = await self._get_full_task(task_id)
+        if not can_assign_executors(actor, await self.get_user_management_id(actor), task):
+            raise HasNotRightsToTaskException
+
+        executor_ids = _unique(executor_ids)
+        executors = await self.db.users.get_users_by_ids(executor_ids)
+        if {executor.id for executor in executors} != set(executor_ids):
+            raise UserNotFoundException
+        if any(executor.department_id != actor.department_id for executor in executors):
+            raise HTTPException(status_code=400, detail="Назначать можно только сотрудников своего отдела")
+
+        old_executor_ids = [executor.id for executor in task.executors]
+        kept_ids = [executor.id for executor in task.executors if executor.department_id != actor.department_id]
+        new_executor_ids = _unique(kept_ids + executor_ids)
+        if task.target_type == TaskTargetType.EXECUTORS and not new_executor_ids:
+            raise HTTPException(status_code=400, detail="У задачи, поручённой сотрудникам, должен остаться исполнитель")
+
+        await self.update_executors_task(executor_ids=new_executor_ids, task_id=task_id)
+        await self.db.notifications.add_task_assigned(
+            task_id=task_id,
+            user_ids=[uid for uid in executor_ids if uid not in old_executor_ids],
+            author_id=user_id,
+        )
+        await self.db.save()
+        tasks_logger.info("Назначены исполнители задачи", extra={"user_id": user_id, "data": {
+            "task_id": task_id,
+            "title": task.title,
+            "changes": {"executor_ids": {"old": sorted(old_executor_ids), "new": sorted(new_executor_ids)}},
+        }})
+
+        updated = await self._get_full_task(task_id)
+        await self._mark_editable(actor, [updated])
+        return updated
 
     async def get_tasks(
         self,

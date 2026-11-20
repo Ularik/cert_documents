@@ -328,6 +328,92 @@ async def test_update_can_narrow_task_down_to_managements(admin_ac, org):
 
 
 # ---------------------------------------------------------------------------
+# Назначение исполнителей начальником отдела
+# ---------------------------------------------------------------------------
+
+async def assign(ac: AsyncClient, task_id: int, executor_ids: list[int], route: str = "head"):
+    return await ac.patch(f"/api/{route}/tasks/{task_id}/executors", json={"executor_ids": executor_ids})
+
+
+async def test_head_assigns_own_staff_to_management_task_keeping_type(admin_ac, org):
+    task = await create_admin_task(admin_ac, "for management A", management_ids=[org["man_a"]["id"]])
+
+    await login(admin_ac, "head-a1")
+    detail = (await admin_ac.get(f"/api/tasks/{task['id']}")).json()
+    assert detail["can_edit"] is False
+    assert detail["can_assign_executors"] is True
+
+    response = await assign(admin_ac, task["id"], [org["user_a1"]["id"], org["deputy_a1"]["id"]])
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["target_type"] == "MANAGEMENTS"
+    assert {u["id"] for u in body["executors"]} == {org["user_a1"]["id"], org["deputy_a1"]["id"]}
+    assert body["departments"] == []
+    assert [m["id"] for m in body["managements"]] == [org["man_a"]["id"]]
+    assert body["title"] == "for management A"
+    assert body["author_id"] == task["author_id"]
+
+    # переназначение: заменяется список исполнителей отдела
+    response = await assign(admin_ac, task["id"], [org["user_a1"]["id"]])
+    assert response.status_code == 200, response.text
+    assert [u["id"] for u in response.json()["executors"]] == [org["user_a1"]["id"]]
+
+    # новый исполнитель получил уведомление
+    await login(admin_ac, "user-a1")
+    notifications = (await admin_ac.get("/api/notifications/", params={"unread": "true"})).json()
+    assert any(n["task_id"] == task["id"] for n in notifications), notifications
+
+
+async def test_head_keeps_executors_of_other_departments(admin_ac, org):
+    task = await create_admin_task(
+        admin_ac, "two departments",
+        departments_ids=[org["dep_a1"]["id"], org["dep_a2"]["id"]],
+    )
+    await login(admin_ac, "head-a1")
+    first = await assign(admin_ac, task["id"], [org["user_a1"]["id"]])
+    assert first.status_code == 200, first.text
+
+    # исполнитель другого отдела, назначенный админом, остаётся при переназначении
+    await login(admin_ac, "admin")
+    await admin_ac.put(
+        f"/api/admin/tasks/{task['id']}",
+        data=put_data(
+            "two departments",
+            departments_ids=[org["dep_a1"]["id"], org["dep_a2"]["id"]],
+            executor_ids=[org["user_a1"]["id"], org["user_a2"]["id"]],
+        ),
+    )
+    await login(admin_ac, "head-a1")
+    response = await assign(admin_ac, task["id"], [org["deputy_a1"]["id"]])
+    assert response.status_code == 200, response.text
+    assert {u["id"] for u in response.json()["executors"]} == {org["deputy_a1"]["id"], org["user_a2"]["id"]}
+
+
+async def test_head_cannot_assign_staff_of_other_department(admin_ac, org):
+    task = await create_admin_task(admin_ac, "foreign staff", management_ids=[org["man_a"]["id"]])
+    await login(admin_ac, "head-a1")
+    response = await assign(admin_ac, task["id"], [org["user_a2"]["id"]])
+    assert response.status_code == 400
+
+
+async def test_head_cannot_assign_outside_own_zone(admin_ac, org):
+    other_management = await create_admin_task(admin_ac, "management B", management_ids=[org["man_b"]["id"]])
+    other_department = await create_admin_task(admin_ac, "department A2", departments_ids=[org["dep_a2"]["id"]])
+    await login(admin_ac, "head-a1")
+    for task in (other_management, other_department):
+        response = await assign(admin_ac, task["id"], [org["user_a1"]["id"]])
+        assert response.status_code == 403, response.text
+
+
+async def test_only_head_can_assign_executors(admin_ac, org):
+    task = await create_admin_task(admin_ac, "deputy and mh", management_ids=[org["man_a"]["id"]])
+    await login(admin_ac, "deputy-a1")
+    assert (await assign(admin_ac, task["id"], [org["user_a1"]["id"]])).status_code == 403
+    await login(admin_ac, "mh-a")
+    assert (await assign(admin_ac, task["id"], [org["user_a1"]["id"]], route="management-head")).status_code == 403
+
+
+# ---------------------------------------------------------------------------
 # Видимость и статус
 # ---------------------------------------------------------------------------
 

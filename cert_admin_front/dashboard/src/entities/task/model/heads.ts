@@ -3,6 +3,7 @@ import {
   putHeadsTask,
   postHeadsTask,
   patchHeadsTaskStatus,
+  patchHeadsTaskExecutors,
 } from "../api/heads";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -31,6 +32,17 @@ export const useUpdateHeadsTask = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: putHeadsTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task"] });
+    },
+  });
+};
+
+export const useAssignHeadsTaskExecutors = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: patchHeadsTaskExecutors,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["task"] });

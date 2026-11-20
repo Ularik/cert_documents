@@ -31,26 +31,55 @@ def can_modify_task(
       начальник отдела / заместитель — свой отдел); или
     - у задачи нет автора (его удалили) и вы ADMIN / DIVISION_HEAD.
 
-    Задачи, поручённые управлениям или отделам целиком, меняет только автор.
+    Задачи, поручённые управлениям или отделам целиком, меняет автор или вышестоящий:
+    ADMIN / DIVISION_HEAD — везде, начальник управления — в своём управлении.
+
+    Исключение — начальник отдела в режиме начальника управления: он меняет любую
+    задачу своего управления (автор и тип задачи не важны). Задачи, которые охватывают
+    и другие управления, ему недоступны: при сохранении чужие управления бы потерялись.
     """
     if task.author_id is not None and task.author_id == actor.id:
         return True
+    if actor.is_acting and actor.status == UserStatus.MANAGEMENT_HEAD.value:
+        return actor_management_id is not None and {m.id for m in task.managements} == {actor_management_id}
     if task.author_id is None:
         return actor.status in ADMIN_TIER
-    if task.target_type != TaskTargetType.EXECUTORS:
-        return False
 
     author_rank = ROLE_RANK.get(task.author.status, 0) if task.author else 0
     if ROLE_RANK.get(actor.status, 0) <= author_rank:
         return False
 
+    # админы и начальник управления правят задачи нижестоящих (в том числе И.О. — их роль HEAD)
+    # любого типа, в том числе на весь отдел или всё управление; начальник управления —
+    # если задача целиком в его управлении
     if actor.status in ADMIN_TIER:
         return True
     if actor.status == UserStatus.MANAGEMENT_HEAD.value:
         return actor_management_id is not None and {m.id for m in task.managements} == {actor_management_id}
+
+    if task.target_type != TaskTargetType.EXECUTORS:
+        return False
     if actor.status in DEPARTMENT_TIER:
         return actor.department_id is not None and {d.id for d in task.departments} == {actor.department_id}
     return False
+
+
+def can_assign_executors(
+    actor: UserOutSchema,
+    actor_management_id: int | None,
+    task: TaskFullOutSchema,
+) -> bool:
+    """Назначать исполнителей из своего отдела может начальник отдела, если задача
+    поручена его управлению целиком или его отделу (в том числе через сотрудников отдела).
+
+    Меняются только исполнители из его отдела; автор, текст, срок и адресаты задачи
+    остаются прежними, поэтому автор по роли может быть и выше начальника отдела.
+    """
+    if actor.status != UserStatus.HEAD.value or actor.department_id is None:
+        return False
+    if task.target_type == TaskTargetType.MANAGEMENTS:
+        return actor_management_id is not None and actor_management_id in {m.id for m in task.managements}
+    return actor.department_id in {d.id for d in task.departments}
 
 
 def can_work_with_task(

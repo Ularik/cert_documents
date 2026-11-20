@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { TaskDetail } from "@/widgets/task-detail";
 import { useMe } from "@/entities/user";
-import { useUpdateHeadsTask, useDeleteHeadsTask } from "@/entities/task";
+import { useUpdateHeadsTask, useDeleteHeadsTask, useAssignHeadsTaskExecutors } from "@/entities/task";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { useTaskDetail } from "@/entities/task";
 import { useRouter } from "next/navigation";
@@ -35,6 +35,10 @@ export default function TaskAdminDetailPage({
     updateTask.mutateAsync({ id, data });
   }
   const deleteTask = useDeleteHeadsTask();
+  const assignExecutors = useAssignHeadsTaskExecutors();
+
+  const handleAssign = (executorIds: string[]) =>
+    assignExecutors.mutateAsync({ id, executorIds });
 
   const handleDelete = async () => {
     try {
@@ -90,6 +94,8 @@ export default function TaskAdminDetailPage({
       deleteTaskFunc={handleDelete}
       isUpdating={updateTask.isPending}
       isDeleting={deleteTask.isPending}
+      assignExecutorsFunc={handleAssign}
+      isAssigning={assignExecutors.isPending}
     />
   );
 }

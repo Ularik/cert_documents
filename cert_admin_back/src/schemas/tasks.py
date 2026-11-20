@@ -91,6 +91,13 @@ class TaskFullOutSchema(TaskCreateUpdateSchema):
     # заполняется сервисом для текущего пользователя
     can_edit: bool = False
     can_change_status: bool = False
+    can_assign_executors: bool = False
+
+
+class TaskExecutorsAssignSchema(BaseModel):
+    """Исполнители из отдела начальника; исполнители других отделов не затрагиваются."""
+    executor_ids: list[int] = Field(default_factory=list)
+
 
 class TaskApiResponseSchema(BaseModel):
     total: int
